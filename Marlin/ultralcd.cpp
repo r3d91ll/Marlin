@@ -987,7 +987,7 @@ void kill_screen(const char* lcd_msg) {
           const float new_zoffset = zprobe_zoffset + planner.steps_to_mm[Z_AXIS] * babystep_increment;
           if (WITHIN(new_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
 
-            if (planner.abl_enabled)
+            //if (planner.abl_enabled)
               thermalManager.babystep_axis(Z_AXIS, babystep_increment);
 
             zprobe_zoffset = new_zoffset;
