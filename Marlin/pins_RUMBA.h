@@ -49,6 +49,7 @@
 #define Y_MAX_PIN          34
 #define Z_MIN_PIN          33
 #define Z_MAX_PIN          32
+#define FIL_RUNOUT_PIN     Z_MAX_PIN
 
 //
 // Z Probe (when not Z_MIN_PIN)
@@ -63,10 +64,12 @@
 #define X_STEP_PIN         17
 #define X_DIR_PIN          16
 #define X_ENABLE_PIN       48
+#define X_CS_PIN           14
 
 #define Y_STEP_PIN         54
 #define Y_DIR_PIN          47
 #define Y_ENABLE_PIN       55
+#define Y_CS_PIN           15
 
 #define Z_STEP_PIN         57
 #define Z_DIR_PIN          56
@@ -153,6 +156,6 @@
 //
 // M3/M4/M5 - Spindle/Laser Control
 //
-#define SPINDLE_LASER_PWM_PIN     4  // MUST BE HARDWARE PWM
+#define SPINDLE_LASER_PWM_PIN     2  // MUST BE HARDWARE PWM
 #define SPINDLE_LASER_ENABLE_PIN 14  // Pin should have a pullup!
 #define SPINDLE_DIR_PIN          15
