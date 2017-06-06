@@ -919,13 +919,15 @@
   #define UBL_MESH_INSET 45          // Mesh inset margin on print area
   #define GRID_MAX_POINTS_X 10      // Don't use more than 15 points per axis, implementation limited.
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
-  #define UBL_PROBE_PT_1_X 40       // These set the probe locations for when UBL does a 3-Point leveling
-  #define UBL_PROBE_PT_1_Y 40      // of the mesh.
-  #define UBL_PROBE_PT_2_X 460
-  #define UBL_PROBE_PT_2_Y 40
+  #define UBL_PROBE_PT_1_X 50       // These set the probe locations for when UBL does a 3-Point leveling
+  #define UBL_PROBE_PT_1_Y 50      // of the mesh.
+  #define UBL_PROBE_PT_2_X 450
+  #define UBL_PROBE_PT_2_Y 50
   #define UBL_PROBE_PT_3_X 250
-  #define UBL_PROBE_PT_3_Y 460
-  #define UBL_G26_MESH_EDITING    // Enable G26 mesh editing
+  #define UBL_PROBE_PT_3_Y 450
+  #define UBL_G26_MESH_VALIDATION   // Enable G26 mesh validation
+  #define UBL_MESH_EDIT_MOVES_Z     // Sophisticated users prefer no movement of nozzle
+
 
 #elif ENABLED(MESH_BED_LEVELING)
 
