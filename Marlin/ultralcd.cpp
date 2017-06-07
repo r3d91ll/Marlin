@@ -1094,6 +1094,7 @@ void kill_screen(const char* lcd_msg) {
   #endif
 
   #if ENABLED(ADVANCED_PAUSE_FEATURE)
+
     void lcd_enqueue_filament_change() {
       if (!DEBUGGING(DRYRUN) && thermalManager.tooColdToExtrude(active_extruder)) {
         lcd_save_previous_screen();
@@ -1103,7 +1104,8 @@ void kill_screen(const char* lcd_msg) {
       lcd_advanced_pause_show_message(ADVANCED_PAUSE_MESSAGE_INIT);
       enqueue_and_echo_commands_P(PSTR("M600 B0"));
     }
-  #endif
+
+  #endif // ADVANCED_PAUSE_FEATURE
 
   /**
    *
@@ -1598,7 +1600,6 @@ void kill_screen(const char* lcd_msg) {
 
             //
             // The last G29 will record and enable but not move.
-            // Since G29 is deferred, 
             //
             lcd_wait_for_move = true;
             enqueue_and_echo_commands_P(PSTR("G29 V1"));
@@ -2079,6 +2080,7 @@ void kill_screen(const char* lcd_msg) {
      *
      *  Prepare
      * - Unified Bed Leveling
+     *   - Manually Build Mesh
      *   - Activate UBL
      *   - Deactivate UBL
      *   - Mesh Storage
@@ -2133,6 +2135,7 @@ void kill_screen(const char* lcd_msg) {
     void _lcd_ubl_level_bed() {
       START_MENU();
       MENU_BACK(MSG_PREPARE);
+      MENU_ITEM(gcode, MSG_UBL_MANUAL_MESH, PSTR("G29 I999\nG29 P2 B T0"));
       MENU_ITEM(gcode, MSG_UBL_ACTIVATE_MESH, PSTR("G29 A"));
       MENU_ITEM(gcode, MSG_UBL_DEACTIVATE_MESH, PSTR("G29 D"));
       MENU_ITEM(submenu, MSG_UBL_STORAGE_MESH_MENU, _lcd_ubl_storage_mesh);
@@ -2592,16 +2595,9 @@ void kill_screen(const char* lcd_msg) {
    *
    */
 
-  /**
-   *
-   * Callback for LCD contrast
-   *
-   */
   #if HAS_LCD_CONTRAST
-
     void lcd_callback_set_contrast() { set_lcd_contrast(lcd_contrast); }
-
-  #endif // HAS_LCD_CONTRAST
+  #endif
 
   static void lcd_factory_settings() {
     settings.reset();
@@ -2616,7 +2612,7 @@ void kill_screen(const char* lcd_msg) {
     MENU_ITEM(submenu, MSG_FILAMENT, lcd_control_filament_menu);
 
     #if HAS_LCD_CONTRAST
-      MENU_ITEM_EDIT_CALLBACK(int3, MSG_CONTRAST, (int) &lcd_contrast, LCD_CONTRAST_MIN, LCD_CONTRAST_MAX, lcd_callback_set_contrast, true);
+      MENU_ITEM_EDIT_CALLBACK(int3, MSG_CONTRAST, (int*)&lcd_contrast, LCD_CONTRAST_MIN, LCD_CONTRAST_MAX, lcd_callback_set_contrast, true);
     #endif
     #if ENABLED(FWRETRACT)
       MENU_ITEM(submenu, MSG_RETRACT, lcd_control_retract_menu);
