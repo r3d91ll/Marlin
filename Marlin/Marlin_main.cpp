@@ -1499,7 +1499,7 @@ static void set_axis_is_at_home(const AxisEnum axis) {
  * Some planner shorthand inline functions
  */
 inline float get_homing_bump_feedrate(const AxisEnum axis) {
-  const uint8_t homing_bump_divisor[] PROGMEM = HOMING_BUMP_DIVISOR;
+  static const uint8_t homing_bump_divisor[] PROGMEM = HOMING_BUMP_DIVISOR;
   uint8_t hbd = pgm_read_byte(&homing_bump_divisor[axis]);
   if (hbd < 1) {
     hbd = 10;
@@ -7827,7 +7827,6 @@ inline void gcode_M115() {
     // CASE LIGHTS (M355)
     #if HAS_CASE_LIGHT
       SERIAL_PROTOCOLLNPGM("Cap:TOGGLE_LIGHTS:1");
-      bool USEABLE_HARDWARE_PWM(uint8_t pin);
       if (USEABLE_HARDWARE_PWM(CASE_LIGHT_PIN)) {
         SERIAL_PROTOCOLLNPGM("Cap:CASE_LIGHT_BRIGHTNESS:1");
       }
