@@ -992,13 +992,7 @@ void kill_screen(const char* lcd_msg) {
           const float new_zoffset = zprobe_zoffset + planner.steps_to_mm[Z_AXIS] * babystep_increment;
           if (WITHIN(new_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
 
-            if (
-            #if ENABLED(AUTO_BED_LEVELING_UBL)
-              ubl.state.active
-            #else
-              planner.abl_enabled
-           #endif
-            )
+            if (leveling_is_active())
               thermalManager.babystep_axis(Z_AXIS, babystep_increment);
 
             zprobe_zoffset = new_zoffset;
