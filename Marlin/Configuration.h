@@ -507,7 +507,7 @@
  * Override with M92
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 1600, 89 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 1600, 92 }
 
 /**
  * Default Max Feed Rate (mm/s)
@@ -672,7 +672,7 @@
 #define Z_PROBE_SPEED_FAST HOMING_FEEDRATE_Z
 
 // Speed for the "accurate" probe of each point
-#define Z_PROBE_SPEED_SLOW (Z_PROBE_SPEED_FAST / 2)
+#define Z_PROBE_SPEED_SLOW (Z_PROBE_SPEED_FAST / 3)
 
 // Use double touch for probing
 //#define PROBE_DOUBLE_TOUCH
@@ -915,8 +915,8 @@
   //========================= Unified Bed Leveling ============================
   //===========================================================================
 
-  #define UBL_MESH_INSET 45          // Mesh inset margin on print area
-  #define GRID_MAX_POINTS_X 10      // Don't use more than 15 points per axis, implementation limited.
+  #define UBL_MESH_INSET 10          // Mesh inset margin on print area
+  #define GRID_MAX_POINTS_X 14      // Don't use more than 15 points per axis, implementation limited.
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
   #define UBL_PROBE_PT_1_X 50       // These set the probe locations for when UBL does a 3-Point leveling
   #define UBL_PROBE_PT_1_Y 50      // of the mesh.
@@ -988,7 +988,7 @@
 
 // Homing speeds (mm/m)
 #define HOMING_FEEDRATE_XY (70*60)
-#define HOMING_FEEDRATE_Z  (4*60)
+#define HOMING_FEEDRATE_Z  (8*60)
 
 //=============================================================================
 //============================= Additional Features ===========================
@@ -1039,11 +1039,11 @@
 
 // Preheat Constants
 #define PREHEAT_1_TEMP_HOTEND 200
-#define PREHEAT_1_TEMP_BED     0
+#define PREHEAT_1_TEMP_BED     60
 #define PREHEAT_1_FAN_SPEED     0 // Value from 0 to 255
 
 #define PREHEAT_2_TEMP_HOTEND 240
-#define PREHEAT_2_TEMP_BED    	0
+#define PREHEAT_2_TEMP_BED    100
 #define PREHEAT_2_FAN_SPEED     0 // Value from 0 to 255
 
 /**
@@ -1193,7 +1193,7 @@
  *  - Click the controller to view the LCD menu
  *  - The LCD will display Japanese, Western, or Cyrillic text
  *
- * See https: *github.com/MarlinFirmware/Marlin/wiki/LCD-Language
+ * See https://github.com/MarlinFirmware/Marlin/wiki/LCD-Language
  *
  * :['JAPANESE', 'WESTERN', 'CYRILLIC']
  */

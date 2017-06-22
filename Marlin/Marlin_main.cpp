@@ -9223,7 +9223,7 @@ inline void gcode_M503() {
       #endif
 
       #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
-        if (!no_babystep && leveling_is_active())
+        if (!no_babystep && axis_homed[Z_AXIS])
           thermalManager.babystep_axis(Z_AXIS, -lround(diff * planner.axis_steps_per_mm[Z_AXIS]));
       #else
         UNUSED(no_babystep);

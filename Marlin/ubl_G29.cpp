@@ -1469,7 +1469,11 @@
     void unified_bed_leveling::fine_tune_mesh(const float &lx, const float &ly, const bool do_ubl_mesh_map) {
       if (!parser.seen('R'))    // fine_tune_mesh() is special. If no repetition count flag is specified
         g29_repetition_cnt = 1;   // do exactly one mesh location. Otherwise use what the parser decided.
-
+      
+      #ifdef UBL_MESH_EDIT_MOVES_Z
+        bool is_surface = parser.seen('S');
+      #endif
+      
       mesh_index_pair location;
       uint16_t not_done[16];
 
@@ -1517,12 +1521,20 @@
 
         lcd_refresh();
 
+/*        #ifdef UBL_MESH_EDIT_MOVES_Z
+          if(is_surface)
+            new_z += 0.2; // add 0.2mm to prevent crash on bed
+        #endif
+*/        
         lcd_mesh_edit_setup(new_z);
 
         do {
           new_z = lcd_mesh_edit();
           #ifdef UBL_MESH_EDIT_MOVES_Z
-            do_blocking_move_to_z(Z_CLEARANCE_BETWEEN_PROBES + new_z);  // Move the nozzle as the point is edited
+            if(is_surface)
+            	do_blocking_move_to_z(new_z);
+            else
+              do_blocking_move_to_z(Z_CLEARANCE_BETWEEN_PROBES + new_z);  // Move the nozzle as the point is edited
           #endif
           idle();
         } while (!ubl_lcd_clicked());
