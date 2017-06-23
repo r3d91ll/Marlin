@@ -1390,6 +1390,9 @@
 //
 // Sainsmart YW Robot (LCM1602) LCD Display
 //
+// Note: This controller requires F.Malpartida's LiquidCrystal_I2C library
+// https://bitbucket.org/fmalpartida/new-liquidcrystal/wiki/Home
+//
 //#define LCD_I2C_SAINSMART_YWROBOT
 
 //
@@ -1486,6 +1489,9 @@
 //define BlinkM/CyzRgb Support
 //#define BLINKM
 
+//define PCA9632 PWM LED driver Support
+//#define PCA9632
+
 // Support for an RGB LED using 3 separate pins with optional PWM
 //#define RGB_LED
 //#define RGBW_LED
@@ -1507,7 +1513,7 @@
  *  - Change to green once print has finished
  *  - Turn off after the print has finished and the user has pushed a button
  */
-#if ENABLED(BLINKM) || ENABLED(RGB_LED) || ENABLED(RGBW_LED)
+#if ENABLED(BLINKM) || ENABLED(RGB_LED) || ENABLED(RGBW_LED) || ENABLED(PCA9632)
   #define PRINTER_EVENT_LEDS
 #endif
 

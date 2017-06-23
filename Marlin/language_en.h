@@ -280,9 +280,9 @@
 #ifndef MSG_UBL_OUTPUT_MAP_CSV
   #define MSG_UBL_OUTPUT_MAP_CSV              _UxGT("Output for CSV")
 #endif
-  #ifndef MSG_UBL_OUTPUT_MAP_BACKUP
-    #define MSG_UBL_OUTPUT_MAP_BACKUP         _UxGT("Off Printer Backup")
-  #endif
+#ifndef MSG_UBL_OUTPUT_MAP_BACKUP
+  #define MSG_UBL_OUTPUT_MAP_BACKUP           _UxGT("Off Printer Backup")
+#endif
 #ifndef MSG_UBL_INFO_UBL
   #define MSG_UBL_INFO_UBL                    _UxGT("Output UBL Info")
 #endif
@@ -333,6 +333,9 @@
 #endif
 #ifndef MSG_UBL_Z_OFFSET_STOPPED
   #define MSG_UBL_Z_OFFSET_STOPPED            _UxGT("Z-Offset Stopped")
+#endif
+#ifndef MSG_UBL_STEP_BY_STEP_MENU
+  #define MSG_UBL_STEP_BY_STEP_MENU           _UxGT("Step-By-Step UBL")
 #endif
 
 #ifndef MSG_MOVING

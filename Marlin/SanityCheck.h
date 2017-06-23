@@ -293,6 +293,8 @@
     #error "BABYSTEPPING is not implemented for SCARA yet."
   #elif ENABLED(DELTA) && ENABLED(BABYSTEP_XY)
     #error "BABYSTEPPING only implemented for Z axis on deltabots."
+  #elif ENABLED(BABYSTEP_ZPROBE_OFFSET) &&  ENABLED(MESH_BED_LEVELING)
+    #error "MESH_BED_LEVELING and BABYSTEP_ZPROBE_OFFSET is not a valid combination"
   #elif ENABLED(BABYSTEP_ZPROBE_OFFSET) && !HAS_BED_PROBE
     #error "BABYSTEP_ZPROBE_OFFSET requires a probe."
   #endif
@@ -321,6 +323,8 @@
     #error "EXTRUDER_RUNOUT_PREVENT is incompatible with ADVANCED_PAUSE_FEATURE."
   #elif ENABLED(PARK_HEAD_ON_PAUSE) && DISABLED(SDSUPPORT) && DISABLED(NEWPANEL) && DISABLED(EMERGENCY_PARSER)
     #error "PARK_HEAD_ON_PAUSE requires SDSUPPORT, EMERGENCY_PARSER, or an LCD controller."
+  #elif ENABLED(HOME_BEFORE_FILAMENT_CHANGE) && DISABLED(PAUSE_PARK_NO_STEPPER_TIMEOUT)
+    #error "HOME_BEFORE_FILAMENT_CHANGE requires PAUSE_PARK_NO_STEPPER_TIMEOUT"
   #endif
 #endif
 
@@ -353,12 +357,14 @@
 #endif
 
 /**
- * A dual nozzle x-carriage with switching servo
+ * A Dual Nozzle carriage with switching servo
  */
 #if ENABLED(SWITCHING_NOZZLE)
-  #if ENABLED(SINGLENOZZLE)
+  #if ENABLED(DUAL_X_CARRIAGE)
+    #error "SWITCHING_NOZZLE and DUAL_X_CARRIAGE are incompatible."
+  #elif ENABLED(SINGLENOZZLE)
     #error "SWITCHING_NOZZLE and SINGLENOZZLE are incompatible."
-  #elif EXTRUDERS < 2
+  #elif EXTRUDERS != 2
     #error "SWITCHING_NOZZLE requires exactly 2 EXTRUDERS."
   #elif NUM_SERVOS < 1
     #error "SWITCHING_NOZZLE requires NUM_SERVOS >= 1."
@@ -368,14 +374,8 @@
 /**
  * Single Stepper Dual Extruder with switching servo
  */
-#if ENABLED(SWITCHING_EXTRUDER)
-  #if ENABLED(DUAL_X_CARRIAGE)
-    #error "SWITCHING_EXTRUDER and DUAL_X_CARRIAGE are incompatible."
-  #elif EXTRUDERS != 2
-    #error "SWITCHING_EXTRUDER requires exactly 2 EXTRUDERS."
-  #elif NUM_SERVOS < 1
-    #error "SWITCHING_EXTRUDER requires NUM_SERVOS >= 1."
-  #endif
+#if ENABLED(SWITCHING_EXTRUDER) && NUM_SERVOS < 1
+  #error "SWITCHING_EXTRUDER requires NUM_SERVOS >= 1."
 #endif
 
 /**
@@ -936,21 +936,21 @@ static_assert(1 >= 0
 #endif
 
 /**
- * Test Extruder Pins
+ * Test Extruder Stepper Pins
  */
-#if EXTRUDERS > 4
+#if E_STEPPERS > 4
   #if !PIN_EXISTS(E4_STEP) || !PIN_EXISTS(E4_DIR) || !PIN_EXISTS(E4_ENABLE)
     #error "E4_STEP_PIN, E4_DIR_PIN, or E4_ENABLE_PIN not defined for this board."
   #endif
-#elif EXTRUDERS > 3
+#elif E_STEPPERS > 3
   #if !PIN_EXISTS(E3_STEP) || !PIN_EXISTS(E3_DIR) || !PIN_EXISTS(E3_ENABLE)
     #error "E3_STEP_PIN, E3_DIR_PIN, or E3_ENABLE_PIN not defined for this board."
   #endif
-#elif EXTRUDERS > 2
+#elif E_STEPPERS > 2
   #if !PIN_EXISTS(E2_STEP) || !PIN_EXISTS(E2_DIR) || !PIN_EXISTS(E2_ENABLE)
     #error "E2_STEP_PIN, E2_DIR_PIN, or E2_ENABLE_PIN not defined for this board."
   #endif
-#elif EXTRUDERS > 1
+#elif E_STEPPERS > 1
   #if !PIN_EXISTS(E1_STEP) || !PIN_EXISTS(E1_DIR) || !PIN_EXISTS(E1_ENABLE)
     #error "E1_STEP_PIN, E1_DIR_PIN, or E1_ENABLE_PIN not defined for this board."
   #endif
@@ -1027,17 +1027,13 @@ static_assert(1 >= 0
     #error "RGB_LED requires RGB_LED_R_PIN, RGB_LED_G_PIN, and RGB_LED_B_PIN."
   #elif ENABLED(RGBW_LED)
     #error "Please enable only one of RGB_LED and RGBW_LED."
-  #elif ENABLED(BLINKM)
-    #error "RGB_LED and BLINKM are currently incompatible (both use M150)."
   #endif
 #elif ENABLED(RGBW_LED)
   #if !(_RGB_TEST && PIN_EXISTS(RGB_LED_W))
     #error "RGBW_LED requires RGB_LED_R_PIN, RGB_LED_G_PIN, RGB_LED_B_PIN, and RGB_LED_W_PIN."
-  #elif ENABLED(BLINKM)
-    #error "RGBW_LED and BLINKM are currently incompatible (both use M150)."
   #endif
-#elif DISABLED(BLINKM) && ENABLED(PRINTER_EVENT_LEDS)
-  #error "PRINTER_EVENT_LEDS requires BLINKM, RGB_LED, or RGBW_LED."
+#elif ENABLED(PRINTER_EVENT_LEDS) && DISABLED(BLINKM) && DISABLED(PCA9632)
+  #error "PRINTER_EVENT_LEDS requires BLINKM, PCA9632, RGB_LED, or RGBW_LED."
 #endif
 
 /**
