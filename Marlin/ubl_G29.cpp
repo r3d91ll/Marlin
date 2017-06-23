@@ -219,10 +219,19 @@
    *                    an LCD Panel. It is possible to fine tune the mesh without the use of an LCD Panel using
    *                    G42 and M421; see the UBL documentation for further details.
    *
+   *                    Phase 4 is intended to be used with the G26 Mesh Validation Command. Using the
+   *                    information left on the printer's bed from the G26 command it is very straight forward
+   *                    and easy to fine tune the Mesh. One concept that is important to remember and that
+   *                    will make using the Phase 4 command easy to use is this:  You are editing the Mesh Points.
+   *                    If you have too little clearance and not much plastic was extruded in an area, you want to
+   *                    LOWER the Mesh Point at the location. If you did not get good adheasion, you want to
+   *                    RAISE the Mesh Point at that location.
+   *
    *                    The System will search for the closest Mesh Point to the nozzle. It will move the
-   *                    nozzle to this location. The user can use the LCD Panel to carefully adjust the nozzle
-   *                    so it is just barely touching the bed. When the user clicks the control, the System
-   *                    will lock in that height for that point in the Mesh Compensation System.
+   *                    nozzle to this location. The nozzle will be placed at the current mesh height +
+   *                    Z_CLEARANCE_BETWEEN_PROBES and the user can use the LCD Panel to carefully adjust
+   *                    the nozzle up or down depending on the result of G26.  When the user clicks the control,
+   *                    the System will lock in the displayed height for that point in the Mesh Compensation System.
    *
    *                    Phase 4 has several additional parameters that the user may find helpful. Phase 4
    *                    can be started at a specific location by specifying an X and Y parameter. Phase 4
@@ -233,13 +242,12 @@
    *                    pressing and holding the encoder wheel until the system recognizes the exit request.
    *                    Phase 4's general form is G29 P4 [R # of points] [X position] [Y position]
    *
-   *                    Phase 4 is intended to be used with the G26 Mesh Validation Command. Using the
-   *                    information left on the printer's bed from the G26 command it is very straight forward
-   *                    and easy to fine tune the Mesh. One concept that is important to remember and that
-   *                    will make using the Phase 4 command easy to use is this:  You are editing the Mesh Points.
-   *                    If you have too little clearance and not much plastic was extruded in an area, you want to
-   *                    LOWER the Mesh Point at the location. If you did not get good adheasion, you want to
-   *                    RAISE the Mesh Point at that location.
+   *                    The user has the option to supply the addional S(urface) parameter so it will place the
+   *                    nozzle at the current mesh height on the surface of the bed instead of current mesh
+   *                    height + Z_CLEARANCE_BETWEEN_PROBES.  The user then can use the LCD Panel to carefully
+   *                    adjust the nozzle so it is just barely touching the bed.  When the user clicks the
+   *                    control, the System will lock in that height for that point in the Mesh Compensation System.
+   *                    !!Use caution with this option as a very poor mesh could cause the nozzle to crash into the bed!!
    *
    *                    NOTE:  P4 is not available unless you have LCD support enabled!
    *
