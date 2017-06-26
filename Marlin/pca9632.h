@@ -25,12 +25,12 @@
  * Written by Robert Mendon Feb 2017.
  */
 
-#ifndef PCA9632_H
-#define PCA9632_H
+#ifndef __PCA9632_H__
+#define __PCA9632_H__
 
 #include "Arduino.h"
 #include "Wire.h"
 
-void PCA9632_SetColor(byte r, byte g, byte  b);
+void PCA9632_SetColor(const byte r, const byte g, const byte  b);
 
-#endif // PCA9632_H
+#endif // __PCA9632_H__

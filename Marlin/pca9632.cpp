@@ -25,6 +25,12 @@
  * Written by Robert Mendon Feb 2017.
  */
 
+#include "MarlinConfig.h"
+
+#if ENABLED(PCA9632)
+
+#include "pca9632.h"
+
 #define PCA9632_MODE1_VALUE   0b00000001 //(ALLCALL)
 #define PCA9632_MODE2_VALUE   0b00010101 //(DIMMING, INVERT, CHANGE ON STOP,TOTEM)
 #define PCA9632_LEDOUT_VALUE  0b00101010
@@ -62,27 +68,18 @@
 #define LED_ON    0x01
 #define LED_PWM   0x02
 
- 
-#include "Marlin.h"
-
-#if ENABLED(PCA9632)
-
 #define PCA9632_ADDRESS 0b01100000
-
-#include "pca9632.h"
 
 byte PCA_init = 0;
 
-static void PCA9632_WriteRegister(byte addr, byte regadd, byte value)
-{
+static void PCA9632_WriteRegister(const byte addr, const byte regadd, const byte value) {
   Wire.beginTransmission(addr);
   Wire.write(regadd);
   Wire.write(value);
   Wire.endTransmission();
 }
 
-static void PCA9632_WriteAllRegisters(byte addr, byte regadd, byte value1, byte value2, byte value3)
-{
+static void PCA9632_WriteAllRegisters(const byte addr, const byte regadd, const byte value1, const byte value2, const byte value3) {
   Wire.beginTransmission(addr);
   Wire.write(PCA9632_AUTO_IND | regadd);
   Wire.write(value1);
@@ -91,39 +88,28 @@ static void PCA9632_WriteAllRegisters(byte addr, byte regadd, byte value1, byte 
   Wire.endTransmission();
 }
 
-static byte PCA9632_ReadRegister(byte addr, byte regadd)
-{
-  byte value;
+static byte PCA9632_ReadRegister(const byte addr, const byte regadd) {
   Wire.beginTransmission(addr);
   Wire.write(regadd);
-  value = Wire.read();
+  const byte value = Wire.read();
   Wire.endTransmission();
+  return value;
 }
 
-void PCA9632_SetColor(byte r, byte g, byte b)
-{
-  byte LEDOUT = 0;
-  
-  if (!PCA_init)
-  {
+void PCA9632_SetColor(const byte r, const byte g, const byte b) {
+  if (!PCA_init) {
     PCA_init = 1;
     Wire.begin();
     PCA9632_WriteRegister(PCA9632_ADDRESS,PCA9632_MODE1, PCA9632_MODE1_VALUE);
     PCA9632_WriteRegister(PCA9632_ADDRESS,PCA9632_MODE2, PCA9632_MODE2_VALUE);
   }
-  
-  if (r>0)
-    LEDOUT |= LED_PWM << PCA9632_RED;
-  
-  if (g>0)
-    LEDOUT |= LED_PWM << PCA9632_GRN;
-  
-  if (b>0)
-    LEDOUT |= LED_PWM << PCA9632_BLU;
-    
+
+  const byte LEDOUT = (r ? LED_PWM << PCA9632_RED : 0)
+                    | (g ? LED_PWM << PCA9632_GRN : 0)
+                    | (b ? LED_PWM << PCA9632_BLU : 0);
+
   PCA9632_WriteAllRegisters(PCA9632_ADDRESS,PCA9632_PWM0, r, g, b);
   PCA9632_WriteRegister(PCA9632_ADDRESS,PCA9632_LEDOUT, LEDOUT);
 }
 
 #endif // PCA9632
-

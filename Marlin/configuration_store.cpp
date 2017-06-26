@@ -140,25 +140,27 @@
  *  534  M200 T D  filament_size                    (float x5) (T0..3)
  *
  * HAVE_TMC2130:                                    20 bytes
- *  554  M906 X    stepperX current                 (uint16_t)
- *  556  M906 Y    stepperY current                 (uint16_t)
- *  558  M906 Z    stepperZ current                 (uint16_t)
- *  560  M906 X2   stepperX2 current                (uint16_t)
- *  562  M906 Y2   stepperY2 current                (uint16_t)
- *  564  M906 Z2   stepperZ2 current                (uint16_t)
- *  566  M906 E0   stepperE0 current                (uint16_t)
- *  568  M906 E1   stepperE1 current                (uint16_t)
- *  570  M906 E2   stepperE2 current                (uint16_t)
- *  572  M906 E3   stepperE3 current                (uint16_t)
- *  576  M906 E4   stepperE4 current                (uint16_t)
+ *  554  M906 X    Stepper X current                (uint16_t)
+ *  556  M906 Y    Stepper Y current                (uint16_t)
+ *  558  M906 Z    Stepper Z current                (uint16_t)
+ *  560  M906 X2   Stepper X2 current               (uint16_t)
+ *  562  M906 Y2   Stepper Y2 current               (uint16_t)
+ *  564  M906 Z2   Stepper Z2 current               (uint16_t)
+ *  566  M906 E0   Stepper E0 current               (uint16_t)
+ *  568  M906 E1   Stepper E1 current               (uint16_t)
+ *  570  M906 E2   Stepper E2 current               (uint16_t)
+ *  572  M906 E3   Stepper E3 current               (uint16_t)
+ *  576  M906 E4   Stepper E4 current               (uint16_t)
  *
  * LIN_ADVANCE:                                     8 bytes
  *  580  M900 K    extruder_advance_k               (float)
  *  584  M900 WHD  advance_ed_ratio                 (float)
  *
- *  588  M907 X    stepper xy current
- *  592  M907 Z    stepper z current
- *  596  M907 E    stepper e current
+ * HAS_MOTOR_CURRENT_PWM:
+ *  588  M907 X    Stepper XY current               (uint32_t)
+ *  592  M907 Z    Stepper Z current                (uint32_t)
+ *  596  M907 E    Stepper E current                (uint32_t)
+ *
  *  600                                Minimum end-point
  * 1921 (600 + 36 + 9 + 288 + 988)     Maximum end-point
  *
@@ -241,6 +243,10 @@ void MarlinSettings::postprocess() {
   #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
     refresh_bed_level();
     //set_bed_leveling_enabled(leveling_is_on);
+  #endif
+
+  #if HAS_MOTOR_CURRENT_PWM
+    stepper.refresh_motor_power();
   #endif
 }
 
@@ -631,12 +637,10 @@ void MarlinSettings::postprocess() {
     #endif
 
     #if HAS_MOTOR_CURRENT_PWM
-      for (uint8_t q = 3; q--;)
-        EEPROM_WRITE(stepper.motor_current_setting[q]);
+      for (uint8_t q = 3; q--;) EEPROM_WRITE(stepper.motor_current_setting[q]);
     #else
-      dummy = 0.0f;
-      for (uint8_t q = 3; q--;)
-        EEPROM_WRITE(dummy);
+      const uint32_t dummyui32 = 0;
+      for (uint8_t q = 3; q--;) EEPROM_WRITE(dummyui32);
     #endif
 
     if (!eeprom_error) {
@@ -993,11 +997,10 @@ void MarlinSettings::postprocess() {
       #endif
 
       #if HAS_MOTOR_CURRENT_PWM
-        for (uint8_t q = 3; q--;)
-          EEPROM_READ(stepper.motor_current_setting[q]);
+        for (uint8_t q = 3; q--;) EEPROM_READ(stepper.motor_current_setting[q]);
       #else
-        for (uint8_t q = 3; q--;)
-          EEPROM_READ(dummy);
+        uint32_t dummyui32;
+        for (uint8_t q = 3; q--;) EEPROM_READ(dummyui32);
       #endif
 
       if (working_crc == stored_crc) {
@@ -1331,13 +1334,9 @@ void MarlinSettings::reset() {
   #endif
 
   #if HAS_MOTOR_CURRENT_PWM
-    unsigned long tmp_motor_current_setting[3]= PWM_MOTOR_CURRENT;
+    uint32_t tmp_motor_current_setting[3] = PWM_MOTOR_CURRENT;
     for (uint8_t q = 3; q--;)
-      stepper.motor_current_setting[q] = tmp_motor_current_setting[q];
-  
-    stepper.digipot_current(0, stepper.motor_current_setting[0]);
-    stepper.digipot_current(1, stepper.motor_current_setting[1]);
-    stepper.digipot_current(2, stepper.motor_current_setting[2]);
+      stepper.digipot_current(q, (stepper.motor_current_setting[q] = tmp_motor_current_setting[q]));
   #endif
 
   #if ENABLED(AUTO_BED_LEVELING_UBL)
@@ -1830,7 +1829,7 @@ void MarlinSettings::reset() {
       SERIAL_ECHOPAIR(" Z", stepper.motor_current_setting[1]);
       SERIAL_ECHOPAIR(" E", stepper.motor_current_setting[2]);
       SERIAL_EOL();
-    #endif	
+    #endif
   }
 
 #endif // !DISABLE_M503
