@@ -32,11 +32,10 @@
   #error "Azteeg X3 supports up to 2 hotends / E-steppers. Comment out this line to continue."
 #endif
 
-#define BOARD_NAME "Azteeg X3"
-
-#if !PIN_EXISTS(CASE_LIGHT)         // doesn't already exist so OK to change the definition coming
-  #define OK_TO_CHANGE_CASE_LIGHT   // in from from the include file
+#if ENABLED(CASE_LIGHT_ENABLE)  && !PIN_EXISTS(CASE_LIGHT)
+  #define CASE_LIGHT_PIN 6     // must define it here or else RAMPS will define it
 #endif
+#define BOARD_NAME "Azteeg X3"
 
 #include "pins_RAMPS_13.h"
 
@@ -51,6 +50,9 @@
 //
 // LCD / Controller
 //
+#undef STAT_LED_RED_PIN
+#undef STAT_LED_BLUE_PIN
+
 #if ENABLED(VIKI2) || ENABLED(miniVIKI)
 
   #undef DOGLCD_A0
@@ -60,8 +62,6 @@
   #define DOGLCD_CS         32
   #define BTN_ENC           12
 
-  #undef STAT_LED_RED_PIN
-  #undef STAT_LED_BLUE_PIN
   #define STAT_LED_RED_PIN  64
   #define STAT_LED_BLUE_PIN 63
 
@@ -75,10 +75,8 @@
 //
 // Misc
 //
-#if ENABLED(OK_TO_CHANGE_CASE_LIGHT) && STAT_LED_RED_PIN == 6
+#if ENABLED(CASE_LIGHT_ENABLE)  && PIN_EXISTS(CASE_LIGHT) && PIN_EXISTS(STAT_LED_RED) && STAT_LED_RED_PIN == CASE_LIGHT_PIN
   #undef STAT_LED_RED_PIN
-  #undef CASE_LIGHT_PIN
-  #define CASE_LIGHT_PIN 6  // open collector FET driver
 #endif
 
 //
@@ -94,6 +92,7 @@
   #if SERVO0_PIN == 7
     #undef SERVO0_PIN
     #def SERVO0_PIN 11
+  #endif
   #define SPINDLE_LASER_PWM_PIN     7  // MUST BE HARDWARE PWM
   #define SPINDLE_LASER_ENABLE_PIN 20  // Pin should have a pullup!
   #define SPINDLE_DIR_PIN          21
