@@ -785,7 +785,7 @@
 
 //#define NO_MOTION_BEFORE_HOMING  // Inhibit movement until all axes have been homed
 
-//#define Z_HOMING_HEIGHT 0  // (in mm) Minimal z height before homing (G28) for Z clearance above the bed, clamps, ...
+#define Z_HOMING_HEIGHT 0  // (in mm) Minimal z height before homing (G28) for Z clearance above the bed, clamps, ...
                              // Be sure you have this distance over your Z_MAX_POS in case.
 
 // Direction of endstops when homing; 1=MAX, -1=MIN
@@ -822,7 +822,7 @@
 #if ENABLED(MIN_SOFTWARE_ENDSTOPS)
   #define MIN_SOFTWARE_ENDSTOP_X
   #define MIN_SOFTWARE_ENDSTOP_Y
-  #define MIN_SOFTWARE_ENDSTOP_Z
+  //#define MIN_SOFTWARE_ENDSTOP_Z
 #endif
 
 // Max software endstops constrain movement within maximum coordinate bounds
@@ -927,23 +927,23 @@
   #define MIN_PROBE_EDGE 30
 
   // Set the boundaries for probing (where the probe can reach).
-  #if X_PROBE_OFFSET_FROM_EXTRUDER > 0 
+  #if X_PROBE_OFFSET_FROM_EXTRUDER > 0
   	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + X_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
   	#define RIGHT_PROBE_BED_POSITION X_MAX_POS - MIN_PROBE_EDGE
   #else
   	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + MIN_PROBE_EDGE
   	#define RIGHT_PROBE_BED_POSITION X_MAX_POS + X_PROBE_OFFSET_FROM_EXTRUDER - MIN_PROBE_EDGE
   #endif
-  
-  
-  #if Y_PROBE_OFFSET_FROM_EXTRUDER > 0  
+
+
+  #if Y_PROBE_OFFSET_FROM_EXTRUDER > 0
     #define FRONT_PROBE_BED_POSITION Y_MIN_POS + Y_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
     #define BACK_PROBE_BED_POSITION  Y_MAX_POS - MIN_PROBE_EDGE
   #else
     #define FRONT_PROBE_BED_POSITION Y_MIN_POS + MIN_PROBE_EDGE
     #define BACK_PROBE_BED_POSITION  Y_MAX_POS + Y_PROBE_OFFSET_FROM_EXTRUDER - MIN_PROBE_EDGE
   #endif
- 
+
 
   // Probe along the Y axis, advancing X after each column
   //#define PROBE_Y_FIRST

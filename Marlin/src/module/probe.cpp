@@ -71,7 +71,7 @@ inline void do_probe_raise(const float z_raise) {
   float z_dest = z_raise;
   if (zprobe_zoffset < 0) z_dest -= zprobe_zoffset;
 
-  if (z_dest > current_position[Z_AXIS])
+  if ((z_dest > current_position[Z_AXIS]) && axis_homed[Z_AXIS])
     do_blocking_move_to_z(z_dest);
 }
 
