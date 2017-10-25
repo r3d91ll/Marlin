@@ -49,4 +49,3 @@ script:
   #
   - restore_configs
   - build_marlin_pio ${TRAVIS_BUILD_DIR} ${TEST_PLATFORM}
-  
