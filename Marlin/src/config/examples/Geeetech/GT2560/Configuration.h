@@ -1064,7 +1064,7 @@
 //
 // M100 Free Memory Watcher
 //
-//#define M100_FREE_MEMORY_WATCHER // uncomment to add the M100 Free Memory Watcher for debug purpose
+//#define M100_FREE_MEMORY_WATCHER    // Add M100 (Free Memory Watcher) to debug memory usage
 
 //
 // G20/G21 Inch mode support
@@ -1738,7 +1738,7 @@
 /**
  * Customize common displays for GT2560
  */
-#if ENABLED(ULTIMAKERCONTROLLER) || ENABLED(REPRAP_DISCOUNT_SMART_CONTROLLER) || ENABLED(G3D_PANEL)
+#if ENABLED(ULTIMAKERCONTROLLER) || ENABLED(REPRAP_DISCOUNT_SMART_CONTROLLER) || ENABLED(G3D_PANEL) || ENABLED(MKS_MINI_12864)
   #define SDSUPPORT   // Force SD Card support on for these displays
 #elif ENABLED(ULTRA_LCD) && ENABLED(DOGLCD) // No panel, just graphical LCD?
   #define LCD_WIDTH 20 // Default is 22. For this Geeetech use 20
