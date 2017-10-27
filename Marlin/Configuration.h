@@ -212,7 +212,7 @@
 // Offset of the extruders (uncomment if using more than one and relying on firmware to position when changing).
 // The offset has to be X=0, Y=0 for the extruder 0 hotend (default extruder).
 // For the other hotends it is their distance from the extruder 0 hotend.
-#define HOTEND_OFFSET_X {0.0, -32.3} // (in mm) for each extruder, offset of the hotend on the X 
+#define HOTEND_OFFSET_X {0.0, -32.3} // (in mm) for each extruder, offset of the hotend on the X
 
 #define HOTEND_OFFSET_Y {0.0, 0.0}  // (in mm) for each extruder, offset of the hotend on the Y axis
 
@@ -359,11 +359,11 @@
   //#define  DEFAULT_Kp 22.2
   //#define  DEFAULT_Ki 1.08
   //#define  DEFAULT_Kd 114
-  
+
   #define DEFAULT_Kp 19.35
   #define DEFAULT_Ki 1.45
   #define DEFAULT_Kd 64.57
-  
+
   //#define DEFAULT_Kp 17.70
   //#define DEFAULT_Ki 1.38
   //#define DEFAULT_Kd 56.92
@@ -371,7 +371,7 @@
   //#define DEFAULT_Kp 13.67
   //#define DEFAULT_Ki 0.99
   //#define DEFAULT_Kd 47.30
-	
+
   // MakerGear
   //#define  DEFAULT_Kp 7.0
   //#define  DEFAULT_Ki 0.1
@@ -921,16 +921,16 @@
   // The Z probe minimum outer margin (to validate G29 parameters).
   #define MIN_PROBE_EDGE 45
 
-  #if X_PROBE_OFFSET_FROM_EXTRUDER > 0 
+  #if X_PROBE_OFFSET_FROM_EXTRUDER > 0
   	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + X_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
   	#define RIGHT_PROBE_BED_POSITION X_MAX_POS - MIN_PROBE_EDGE
   #else
   	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + MIN_PROBE_EDGE
   	#define RIGHT_PROBE_BED_POSITION X_MAX_POS + X_PROBE_OFFSET_FROM_EXTRUDER - MIN_PROBE_EDGE
   #endif
-  
-  
-  #if Y_PROBE_OFFSET_FROM_EXTRUDER > 0  
+
+
+  #if Y_PROBE_OFFSET_FROM_EXTRUDER > 0
     #define FRONT_PROBE_BED_POSITION Y_MIN_POS + Y_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
     #define BACK_PROBE_BED_POSITION  Y_MAX_POS - MIN_PROBE_EDGE
   #else
@@ -976,7 +976,7 @@
   //========================= Unified Bed Leveling ============================
   //===========================================================================
 
-  #define UBL_MESH_INSET 10          // Mesh inset margin on print area
+  #define MESH_INSET 10          // Mesh inset margin on print area
   #define GRID_MAX_POINTS_X 14      // Don't use more than 15 points per axis, implementation limited.
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
 
@@ -1657,7 +1657,7 @@
  *  as the Arduino cannot handle the current the LEDs will require.
  *  Failure to follow this precaution can destroy your Arduino!
  *  NOTE: A separate 5V power supply is required! The Neopixel LED needs
- *  more current than the Arduino 5V linear regulator can produce. 
+ *  more current than the Arduino 5V linear regulator can produce.
  * *** CAUTION ***
  *
  * LED Type. Enable only one of the following two options.
