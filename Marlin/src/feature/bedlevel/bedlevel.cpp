@@ -27,7 +27,7 @@
 #include "bedlevel.h"
 
 #if ENABLED(MESH_BED_LEVELING) || ENABLED(PROBE_MANUALLY)
-  #include "../../module/stepper.h"
+  #include "../../module/motion.h"
 #endif
 
 #if PLANNER_LEVELING
@@ -256,28 +256,18 @@ void reset_bed_level() {
 
 #if ENABLED(MESH_BED_LEVELING) || ENABLED(PROBE_MANUALLY)
 
-  void _manual_goto_xy(const float &x, const float &y) {
-    const float old_feedrate_mm_s = feedrate_mm_s;
+  void _manual_goto_xy(const float &rx, const float &ry) {
+
     #if MANUAL_PROBE_HEIGHT > 0
       const float prev_z = current_position[Z_AXIS];
-      feedrate_mm_s = homing_feedrate(Z_AXIS);
-      current_position[Z_AXIS] = LOGICAL_Z_POSITION(MANUAL_PROBE_HEIGHT);
-      line_to_current_position();
+      do_blocking_move_to(rx, ry, MANUAL_PROBE_HEIGHT);
+      do_blocking_move_to_z(prev_z);
+    #else
+      do_blocking_move_to_xy(rx, ry);
     #endif
 
-    feedrate_mm_s = MMM_TO_MMS(XY_PROBE_SPEED);
-    current_position[X_AXIS] = LOGICAL_X_POSITION(x);
-    current_position[Y_AXIS] = LOGICAL_Y_POSITION(y);
-    line_to_current_position();
-
-    #if MANUAL_PROBE_HEIGHT > 0
-      feedrate_mm_s = homing_feedrate(Z_AXIS);
-      current_position[Z_AXIS] = prev_z; // move back to the previous Z.
-      line_to_current_position();
-    #endif
-
-    feedrate_mm_s = old_feedrate_mm_s;
-    stepper.synchronize();
+    current_position[X_AXIS] = rx;
+    current_position[Y_AXIS] = ry;
 
     #if ENABLED(PROBE_MANUALLY) && ENABLED(LCD_BED_LEVELING)
       lcd_wait_for_move = false;

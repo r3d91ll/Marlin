@@ -83,7 +83,7 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
   bool Stepper::abort_on_endstop_hit = false;
 #endif
 
-#if ENABLED(Z_DUAL_ENDSTOPS)
+#if ENABLED(X_DUAL_ENDSTOPS) || ENABLED(Y_DUAL_ENDSTOPS) || ENABLED(Z_DUAL_ENDSTOPS)
   bool Stepper::performing_homing = false;
 #endif
 
@@ -95,6 +95,16 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
 
 uint8_t Stepper::last_direction_bits = 0;        // The next stepping-bits to be output
 uint16_t Stepper::cleaning_buffer_counter = 0;
+
+#if ENABLED(X_DUAL_ENDSTOPS)
+  bool Stepper::locked_x_motor = false;
+  bool Stepper::locked_x2_motor = false;
+#endif
+
+#if ENABLED(Y_DUAL_ENDSTOPS)
+  bool Stepper::locked_y_motor = false;
+  bool Stepper::locked_y2_motor = false;
+#endif
 
 #if ENABLED(Z_DUAL_ENDSTOPS)
   bool Stepper::locked_z_motor = false;
@@ -110,9 +120,9 @@ volatile uint32_t Stepper::step_events_completed = 0; // The number of step even
 
 #if ENABLED(LIN_ADVANCE)
 
-  constexpr timer_t ADV_NEVER = HAL_TIMER_TYPE_MAX;
+  constexpr hal_timer_t ADV_NEVER = HAL_TIMER_TYPE_MAX;
 
-  timer_t Stepper::nextMainISR = 0,
+  hal_timer_t Stepper::nextMainISR = 0,
          Stepper::nextAdvanceISR = ADV_NEVER,
          Stepper::eISR_Rate = ADV_NEVER;
 
@@ -127,9 +137,9 @@ volatile uint32_t Stepper::step_events_completed = 0; // The number of step even
    * This fix isn't perfect and may lose steps - but better than locking up completely
    * in future the planner should slow down if advance stepping rate would be too high
    */
-  FORCE_INLINE timer_t adv_rate(const int steps, const timer_t timer, const uint8_t loops) {
+  FORCE_INLINE hal_timer_t adv_rate(const int steps, const hal_timer_t timer, const uint8_t loops) {
     if (steps) {
-      const timer_t rate = (timer * loops) / abs(steps);
+      const hal_timer_t rate = (timer * loops) / abs(steps);
       //return constrain(rate, 1, ADV_NEVER - 1)
       return rate ? rate : 1;
     }
@@ -147,32 +157,60 @@ volatile signed char Stepper::count_direction[NUM_AXIS] = { 1, 1, 1, 1 };
   long Stepper::counter_m[MIXING_STEPPERS];
 #endif
 
-timer_t Stepper::acc_step_rate; // needed for deceleration start point
+hal_timer_t Stepper::acc_step_rate; // needed for deceleration start point
 uint8_t Stepper::step_loops, Stepper::step_loops_nominal;
-timer_t Stepper::OCR1A_nominal;
+hal_timer_t Stepper::OCR1A_nominal;
 
 volatile long Stepper::endstops_trigsteps[XYZ];
 
+#if ENABLED(X_DUAL_ENDSTOPS) || ENABLED(Y_DUAL_ENDSTOPS) || ENABLED(Z_DUAL_ENDSTOPS)
+  #define LOCKED_X_MOTOR  locked_x_motor
+  #define LOCKED_Y_MOTOR  locked_y_motor
+  #define LOCKED_Z_MOTOR  locked_z_motor
+  #define LOCKED_X2_MOTOR locked_x2_motor
+  #define LOCKED_Y2_MOTOR locked_y2_motor
+  #define LOCKED_Z2_MOTOR locked_z2_motor
+  #define DUAL_ENDSTOP_APPLY_STEP(AXIS,v)                                                                                                             \
+    if (performing_homing) {                                                                                                                          \
+      if (AXIS##_HOME_DIR < 0) {                                                                                                                      \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##_MIN) && (count_direction[AXIS##_AXIS] < 0)) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MIN) && (count_direction[AXIS##_AXIS] < 0)) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
+      }                                                                                                                                               \
+      else {                                                                                                                                          \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##_MAX) && (count_direction[AXIS##_AXIS] > 0)) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MAX) && (count_direction[AXIS##_AXIS] > 0)) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
+      }                                                                                                                                               \
+    }                                                                                                                                                 \
+    else {                                                                                                                                            \
+      AXIS##_STEP_WRITE(v);                                                                                                                           \
+      AXIS##2_STEP_WRITE(v);                                                                                                                          \
+    }
+#endif
+
 #if ENABLED(X_DUAL_STEPPER_DRIVERS)
   #define X_APPLY_DIR(v,Q) do{ X_DIR_WRITE(v); X2_DIR_WRITE((v) != INVERT_X2_VS_X_DIR); }while(0)
-  #define X_APPLY_STEP(v,Q) do{ X_STEP_WRITE(v); X2_STEP_WRITE(v); }while(0)
-#elif ENABLED(DUAL_X_CARRIAGE)
-  #define X_APPLY_DIR(v,ALWAYS) \
-    if (extruder_duplication_enabled || ALWAYS) { \
-      X_DIR_WRITE(v); \
-      X2_DIR_WRITE(v); \
-    } \
-    else { \
-      if (current_block->active_extruder) X2_DIR_WRITE(v); else X_DIR_WRITE(v); \
-    }
-  #define X_APPLY_STEP(v,ALWAYS) \
-    if (extruder_duplication_enabled || ALWAYS) { \
-      X_STEP_WRITE(v); \
-      X2_STEP_WRITE(v); \
-    } \
-    else { \
-      if (current_block->active_extruder) X2_STEP_WRITE(v); else X_STEP_WRITE(v); \
-    }
+  #if ENABLED(DUAL_X_CARRIAGE)
+    #define X_APPLY_DIR(v,ALWAYS) \
+      if (extruder_duplication_enabled || ALWAYS) { \
+        X_DIR_WRITE(v); \
+        X2_DIR_WRITE(v); \
+      } \
+      else { \
+        if (current_block->active_extruder) X2_DIR_WRITE(v); else X_DIR_WRITE(v); \
+      }
+    #define X_APPLY_STEP(v,ALWAYS) \
+      if (extruder_duplication_enabled || ALWAYS) { \
+        X_STEP_WRITE(v); \
+        X2_STEP_WRITE(v); \
+      } \
+      else { \
+        if (current_block->active_extruder) X2_STEP_WRITE(v); else X_STEP_WRITE(v); \
+      }
+  #elif ENABLED(X_DUAL_ENDSTOPS)
+    #define X_APPLY_STEP(v,Q) DUAL_ENDSTOP_APPLY_STEP(X,v)
+  #else
+    #define X_APPLY_STEP(v,Q) do{ X_STEP_WRITE(v); X2_STEP_WRITE(v); }while(0)
+  #endif
 #else
   #define X_APPLY_DIR(v,Q) X_DIR_WRITE(v)
   #define X_APPLY_STEP(v,Q) X_STEP_WRITE(v)
@@ -180,7 +218,11 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 
 #if ENABLED(Y_DUAL_STEPPER_DRIVERS)
   #define Y_APPLY_DIR(v,Q) do{ Y_DIR_WRITE(v); Y2_DIR_WRITE((v) != INVERT_Y2_VS_Y_DIR); }while(0)
-  #define Y_APPLY_STEP(v,Q) do{ Y_STEP_WRITE(v); Y2_STEP_WRITE(v); }while(0)
+  #if ENABLED(Y_DUAL_ENDSTOPS)
+    #define Y_APPLY_STEP(v,Q) DUAL_ENDSTOP_APPLY_STEP(Y,v)
+  #else
+    #define Y_APPLY_STEP(v,Q) do{ Y_STEP_WRITE(v); Y2_STEP_WRITE(v); }while(0)
+  #endif
 #else
   #define Y_APPLY_DIR(v,Q) Y_DIR_WRITE(v)
   #define Y_APPLY_STEP(v,Q) Y_STEP_WRITE(v)
@@ -189,21 +231,7 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 #if ENABLED(Z_DUAL_STEPPER_DRIVERS)
   #define Z_APPLY_DIR(v,Q) do{ Z_DIR_WRITE(v); Z2_DIR_WRITE(v); }while(0)
   #if ENABLED(Z_DUAL_ENDSTOPS)
-    #define Z_APPLY_STEP(v,Q) \
-    if (performing_homing) { \
-      if (Z_HOME_DIR < 0) { \
-        if (!(TEST(endstops.old_endstop_bits, Z_MIN) && (count_direction[Z_AXIS] < 0)) && !locked_z_motor) Z_STEP_WRITE(v); \
-        if (!(TEST(endstops.old_endstop_bits, Z2_MIN) && (count_direction[Z_AXIS] < 0)) && !locked_z2_motor) Z2_STEP_WRITE(v); \
-      } \
-      else { \
-        if (!(TEST(endstops.old_endstop_bits, Z_MAX) && (count_direction[Z_AXIS] > 0)) && !locked_z_motor) Z_STEP_WRITE(v); \
-        if (!(TEST(endstops.old_endstop_bits, Z2_MAX) && (count_direction[Z_AXIS] > 0)) && !locked_z2_motor) Z2_STEP_WRITE(v); \
-      } \
-    } \
-    else { \
-      Z_STEP_WRITE(v); \
-      Z2_STEP_WRITE(v); \
-    }
+    #define Z_APPLY_STEP(v,Q) DUAL_ENDSTOP_APPLY_STEP(Z,v)
   #else
     #define Z_APPLY_STEP(v,Q) do{ Z_STEP_WRITE(v); Z2_STEP_WRITE(v); }while(0)
   #endif
@@ -313,7 +341,7 @@ HAL_STEP_TIMER_ISR {
 
 void Stepper::isr() {
 
-  timer_t ocr_val;
+  hal_timer_t ocr_val;
 
   #define ENDSTOP_NOMINAL_OCR_VAL 1500 * HAL_TICKS_PER_US    // check endstops every 1.5ms to guarantee two stepper ISRs within 5ms for BLTouch
   #define OCR_VAL_TOLERANCE 500 * HAL_TICKS_PER_US           // First max delay is 2.0ms, last min delay is 0.5ms, all others 1.5ms
@@ -649,7 +677,7 @@ void Stepper::isr() {
     NOMORE(acc_step_rate, current_block->nominal_rate);
 
     // step_rate to timer interval
-    const timer_t timer = calc_timer(acc_step_rate);
+    const hal_timer_t timer = calc_timer(acc_step_rate);
 
     SPLIT(timer);  // split step into multiple ISRs if larger than  ENDSTOP_NOMINAL_OCR_VAL
     _NEXT_ISR(ocr_val);
@@ -671,7 +699,7 @@ void Stepper::isr() {
     #endif // LIN_ADVANCE
   }
   else if (step_events_completed > (uint32_t)current_block->decelerate_after) {
-    timer_t step_rate;
+    hal_timer_t step_rate;
     #ifdef CPU_32_BIT
       MultiU32X24toH32(step_rate, deceleration_time, current_block->acceleration_rate);
     #else
@@ -686,7 +714,7 @@ void Stepper::isr() {
       step_rate = current_block->final_rate;
 
     // step_rate to timer interval
-    const timer_t timer = calc_timer(step_rate);
+    const hal_timer_t timer = calc_timer(step_rate);
 
     SPLIT(timer);  // split step into multiple ISRs if larger than  ENDSTOP_NOMINAL_OCR_VAL
     _NEXT_ISR(ocr_val);
@@ -726,7 +754,7 @@ void Stepper::isr() {
   #if DISABLED(LIN_ADVANCE)
     #ifdef CPU_32_BIT
       // Make sure stepper interrupt does not monopolise CPU by adjusting count to give about 8 us room
-      timer_t stepper_timer_count = HAL_timer_get_count(STEP_TIMER_NUM),
+      hal_timer_t stepper_timer_count = HAL_timer_get_count(STEP_TIMER_NUM),
                      stepper_timer_current_count = HAL_timer_get_current_count(STEP_TIMER_NUM) + 8 * HAL_TICKS_PER_US;
       HAL_timer_set_count(STEP_TIMER_NUM, max(stepper_timer_count, stepper_timer_current_count));
     #else

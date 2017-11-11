@@ -118,8 +118,8 @@
       float lcd_z_offset_edit();
     #endif
 
-    #if ENABLED(DELTA_CALIBRATION_MENU)
-      float lcd_probe_pt(const float &lx, const float &ly);
+    #if ENABLED(DELTA_AUTO_CALIBRATION) && !HAS_BED_PROBE
+      float lcd_probe_pt(const float &rx, const float &ry);
     #endif
 
   #else
@@ -221,6 +221,10 @@ void lcd_reset_status();
 // For i2c define BUZZ to use lcd_buzz
 #if ENABLED(LCD_USE_I2C_BUZZER)
   #define BUZZ(d,f) lcd_buzz(d, f)
+#endif
+
+#if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
+  void lcd_reselect_last_file();
 #endif
 
 #endif // ULTRALCD_H

@@ -66,7 +66,7 @@ class Stepper {
       static bool abort_on_endstop_hit;
     #endif
 
-    #if ENABLED(Z_DUAL_ENDSTOPS)
+    #if ENABLED(X_DUAL_ENDSTOPS) || ENABLED(Y_DUAL_ENDSTOPS) || ENABLED(Z_DUAL_ENDSTOPS)
       static bool performing_homing;
     #endif
 
@@ -82,6 +82,12 @@ class Stepper {
     static uint8_t last_direction_bits;        // The next stepping-bits to be output
     static uint16_t cleaning_buffer_counter;
 
+    #if ENABLED(X_DUAL_ENDSTOPS)
+      static bool locked_x_motor, locked_x2_motor;
+    #endif
+    #if ENABLED(Y_DUAL_ENDSTOPS)
+      static bool locked_y_motor, locked_y2_motor;
+    #endif
     #if ENABLED(Z_DUAL_ENDSTOPS)
       static bool locked_z_motor, locked_z2_motor;
     #endif
@@ -91,7 +97,7 @@ class Stepper {
     static volatile uint32_t step_events_completed; // The number of step events executed in the current block
 
     #if ENABLED(LIN_ADVANCE)
-      static timer_t nextMainISR, nextAdvanceISR, eISR_Rate;
+      static hal_timer_t nextMainISR, nextAdvanceISR, eISR_Rate;
       #define _NEXT_ISR(T) nextMainISR = T
 
       static volatile int e_steps[E_STEPPERS];
@@ -106,9 +112,9 @@ class Stepper {
 
     static long acceleration_time, deceleration_time;
     //unsigned long accelerate_until, decelerate_after, acceleration_rate, initial_rate, final_rate, nominal_rate;
-    static timer_t acc_step_rate; // needed for deceleration start point
+    static hal_timer_t acc_step_rate; // needed for deceleration start point
     static uint8_t step_loops, step_loops_nominal;
-    static timer_t OCR1A_nominal;
+    static hal_timer_t OCR1A_nominal;
 
     static volatile long endstops_trigsteps[XYZ];
     static volatile long endstops_stepsTotal, endstops_stepsDone;
@@ -227,8 +233,20 @@ class Stepper {
       static void microstep_readings();
     #endif
 
+    #if ENABLED(X_DUAL_ENDSTOPS)
+      static FORCE_INLINE void set_homing_flag_x(const bool state) { performing_homing = state; }
+      static FORCE_INLINE void set_x_lock(const bool state) { locked_x_motor = state; }
+      static FORCE_INLINE void set_x2_lock(const bool state) { locked_x2_motor = state; }
+    #endif
+
+    #if ENABLED(Y_DUAL_ENDSTOPS)
+      static FORCE_INLINE void set_homing_flag_y(const bool state) { performing_homing = state; }
+      static FORCE_INLINE void set_y_lock(const bool state) { locked_y_motor = state; }
+      static FORCE_INLINE void set_y2_lock(const bool state) { locked_y2_motor = state; }
+    #endif
+
     #if ENABLED(Z_DUAL_ENDSTOPS)
-      static FORCE_INLINE void set_homing_flag(const bool state) { performing_homing = state; }
+      static FORCE_INLINE void set_homing_flag_z(const bool state) { performing_homing = state; }
       static FORCE_INLINE void set_z_lock(const bool state) { locked_z_motor = state; }
       static FORCE_INLINE void set_z2_lock(const bool state) { locked_z2_motor = state; }
     #endif
@@ -259,8 +277,8 @@ class Stepper {
 
   private:
 
-    static FORCE_INLINE timer_t calc_timer(timer_t step_rate) {
-      timer_t timer;
+    static FORCE_INLINE hal_timer_t calc_timer(hal_timer_t step_rate) {
+      hal_timer_t timer;
 
       NOMORE(step_rate, MAX_STEP_FREQUENCY);
 
