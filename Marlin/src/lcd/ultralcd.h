@@ -118,8 +118,8 @@
       float lcd_z_offset_edit();
     #endif
 
-    #if ENABLED(DELTA_CALIBRATION_MENU)
-      float lcd_probe_pt(const float &lx, const float &ly);
+    #if ENABLED(DELTA_AUTO_CALIBRATION) && !HAS_BED_PROBE
+      float lcd_probe_pt(const float &rx, const float &ry);
     #endif
 
   #else
@@ -158,20 +158,19 @@
 
     #define REPRAPWORLD_KEYPAD_MOVE_Z_DOWN  (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_F3)
     #define REPRAPWORLD_KEYPAD_MOVE_Z_UP    (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_F2)
-    #define REPRAPWORLD_KEYPAD_MOVE_MENU    (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_F1)
     #define REPRAPWORLD_KEYPAD_MOVE_Y_DOWN  (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_DOWN)
     #define REPRAPWORLD_KEYPAD_MOVE_X_RIGHT (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_RIGHT)
-    #define REPRAPWORLD_KEYPAD_MOVE_HOME    (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_MIDDLE)
     #define REPRAPWORLD_KEYPAD_MOVE_Y_UP    (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_UP)
     #define REPRAPWORLD_KEYPAD_MOVE_X_LEFT  (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_LEFT)
 
     #if ENABLED(ADC_KEYPAD)
-      #define REPRAPWORLD_KEYPAD_MOVE_HOME  (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_F1)
-      #define KEYPAD_EN_C                   EN_REPRAPWORLD_KEYPAD_MIDDLE
+      #define KEYPAD_HOME EN_REPRAPWORLD_KEYPAD_F1
+      #define KEYPAD_EN_C EN_REPRAPWORLD_KEYPAD_MIDDLE
     #else
-      #define REPRAPWORLD_KEYPAD_MOVE_HOME  (buttons_reprapworld_keypad & EN_REPRAPWORLD_KEYPAD_MIDDLE)
-      #define KEYPAD_EN_C                   EN_REPRAPWORLD_KEYPAD_F1
+      #define KEYPAD_HOME EN_REPRAPWORLD_KEYPAD_MIDDLE
+      #define KEYPAD_EN_C EN_REPRAPWORLD_KEYPAD_F1
     #endif
+    #define REPRAPWORLD_KEYPAD_MOVE_HOME    (buttons_reprapworld_keypad & KEYPAD_HOME)
     #define REPRAPWORLD_KEYPAD_MOVE_MENU    (buttons_reprapworld_keypad & KEYPAD_EN_C)
 
     #if BUTTON_EXISTS(ENC)
@@ -221,6 +220,10 @@ void lcd_reset_status();
 // For i2c define BUZZ to use lcd_buzz
 #if ENABLED(LCD_USE_I2C_BUZZER)
   #define BUZZ(d,f) lcd_buzz(d, f)
+#endif
+
+#if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
+  void lcd_reselect_last_file();
 #endif
 
 #endif // ULTRALCD_H
