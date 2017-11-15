@@ -360,9 +360,13 @@
   //#define  DEFAULT_Ki 1.08
   //#define  DEFAULT_Kd 114
 
-  #define DEFAULT_Kp 19.35
-  #define DEFAULT_Ki 1.45
-  #define DEFAULT_Kd 64.57
+  #define  DEFAULT_Kp 2.09
+  #define  DEFAULT_Ki 0.16
+  #define  DEFAULT_Kd 6.90
+  
+  //#define DEFAULT_Kp 19.35
+  //#define DEFAULT_Ki 1.45
+  //#define DEFAULT_Kd 64.57
 
   //#define DEFAULT_Kp 17.70
   //#define DEFAULT_Ki 1.38
@@ -547,14 +551,14 @@
  * Override with M92
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 1600, 830 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 80, 1600, 830 }
 
 /**
  * Default Max Feed Rate (mm/s)
  * Override with M203
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 150, 150, 25, 40 }
+#define DEFAULT_MAX_FEEDRATE          { 150, 150, 25, 35 }
 
 /**
  * Default Max Acceleration (change/s) change = mm/s
@@ -817,7 +821,7 @@
  */
 
 // Min software endstops constrain movement within minimum coordinate bounds
-#define MIN_SOFTWARE_ENDSTOPS
+//#define MIN_SOFTWARE_ENDSTOPS
 #if ENABLED(MIN_SOFTWARE_ENDSTOPS)
   #define MIN_SOFTWARE_ENDSTOP_X
   #define MIN_SOFTWARE_ENDSTOP_Y
@@ -825,7 +829,7 @@
 #endif
 
 // Max software endstops constrain movement within maximum coordinate bounds
-#define MAX_SOFTWARE_ENDSTOPS
+//#define MAX_SOFTWARE_ENDSTOPS
 #if ENABLED(MAX_SOFTWARE_ENDSTOPS)
   #define MAX_SOFTWARE_ENDSTOP_X
   #define MAX_SOFTWARE_ENDSTOP_Y
