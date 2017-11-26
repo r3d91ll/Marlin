@@ -363,6 +363,7 @@
   //#define  DEFAULT_Ki 1.08
   //#define  DEFAULT_Kd 114
 
+  // Spectra 2.0.x
   #define  DEFAULT_Kp 32.57
   #define  DEFAULT_Ki 2.62
   #define  DEFAULT_Kd 101.40
@@ -434,6 +435,9 @@
   #define  DEFAULT_bedKi 3.67
   #define  DEFAULT_bedKd 1143.70
 
+  //#define  DEFAULT_bedKp 116.34
+  //#define  DEFAULT_bedKi 3.30
+  //#define  DEFAULT_bedKd 1026.95
 
   // FIND YOUR OWN: "M303 E-1 C8 S90" to run autotune on the bed at 90 degreesC for 8 cycles.
 #endif // PIDTEMPBED
