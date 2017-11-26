@@ -1009,11 +1009,9 @@
             SERIAL_PROTOCOLLNPGM("\nMesh only partially populated.");
             do_blocking_move_to_z(Z_CLEARANCE_DEPLOY_PROBE);
 
-            #if ENABLED(NEWPANEL)
-              lcd_quick_feedback();
-              while (is_lcd_clicked()) idle();
-              lcd_external_control = false;
-            #endif
+            lcd_quick_feedback();
+            while (is_lcd_clicked()) idle();
+            lcd_external_control = false;
 
             KEEPALIVE_STATE(IN_HANDLER);
             restore_ubl_active_state_and_leave();
@@ -1424,7 +1422,7 @@
 
         if ( (type == INVALID && isnan(z_values[i][j]))  // Check to see if this location holds the right thing
           || (type == REAL && !isnan(z_values[i][j]))
-          || (type == SET_IN_BITMAP && is_bit_set(bits, i, j))
+          || (type == SET_IN_BITMAP && is_bitmap_set(bits, i, j))
         ) {
           // We only get here if we found a Mesh Point of the specified type
 
@@ -1492,8 +1490,8 @@
 
         if (location.x_index < 0) break; // stop when we can't find any more reachable points.
 
-        bit_clear(not_done, location.x_index, location.y_index);  // Mark this location as 'adjusted' so we will find a
-                                                                  // different location the next time through the loop
+        bitmap_clear(not_done, location.x_index, location.y_index); // Mark this location as 'adjusted' so we will find a
+                                                                    // different location the next time through the loop
 
         const float rawx = mesh_index_to_xpos(location.x_index),
                     rawy = mesh_index_to_ypos(location.y_index);
