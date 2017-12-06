@@ -613,7 +613,7 @@
   //#define DOGM_SPI_DELAY_US 5
 
   // Swap the CW/CCW indicators in the graphics overlay
-  //#define OVERLAY_GFX_REVERSE
+  #define OVERLAY_GFX_REVERSE
 
 #endif // DOGLCD
 
@@ -648,12 +648,7 @@
   #define DOUBLECLICK_FOR_Z_BABYSTEPPING // Double-click on the Status Screen for Z Babystepping.
   #define DOUBLECLICK_MAX_INTERVAL 1250 // Maximum interval between clicks, in milliseconds.
                                         // Note: Extra time may be added to mitigate controller latency.
-<<<<<<< HEAD
   #define BABYSTEP_ZPROBE_GFX_OVERLAY // Enable graphical overlay on Z-offset editor
-  #define BABYSTEP_ZPROBE_GFX_REVERSE // Reverses the direction of the CW/CCW indicators
-=======
-  //#define BABYSTEP_ZPROBE_GFX_OVERLAY // Enable graphical overlay on Z-offset editor
->>>>>>> origin/bugfix-2.0.x
 #endif
 
 // @section extruder
@@ -1503,11 +1498,11 @@
 /**
  * NanoDLP Synch support
  *
- * Add support for Synchronized Z moves when using with NanoDLP. G0/G1 axis moves will output "Z_move_comp" 
+ * Add support for Synchronized Z moves when using with NanoDLP. G0/G1 axis moves will output "Z_move_comp"
  * string to enable synchronization with DLP projector exposure. This change will allow to use
  * [[WaitForDoneMessage]] instead of populating your gcode with M400 commands
  *
  */
  //#define NANODLP_Z_SYNC
- 
+
 #endif // CONFIGURATION_ADV_H
