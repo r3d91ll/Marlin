@@ -999,15 +999,10 @@
   //========================= Unified Bed Leveling ============================
   //===========================================================================
 
-<<<<<<< HEAD
-  #define MESH_INSET 10          // Mesh inset margin on print area
-  #define GRID_MAX_POINTS_X 14      // Don't use more than 15 points per axis, implementation limited.
-=======
   //#define MESH_EDIT_GFX_OVERLAY   // Display a graphics overlay while editing the mesh
 
-  #define MESH_INSET 1              // Mesh inset margin on print area
-  #define GRID_MAX_POINTS_X 10      // Don't use more than 15 points per axis, implementation limited.
->>>>>>> origin/bugfix-2.0.x
+  #define MESH_INSET 10              // Mesh inset margin on print area
+  #define GRID_MAX_POINTS_X 14      // Don't use more than 15 points per axis, implementation limited.
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
 
   #define UBL_PROBE_PT_1_X 50       // Probing points for 3-Point leveling of the mesh
@@ -1017,17 +1012,6 @@
   #define UBL_PROBE_PT_3_X 250
   #define UBL_PROBE_PT_3_Y 450
 
-<<<<<<< HEAD
-  #define UBL_G26_MESH_VALIDATION // Enable G26 mesh validation
-  #if ENABLED(UBL_G26_MESH_VALIDATION)
-    #define MESH_TEST_NOZZLE_SIZE    0.4  // (mm) Diameter of primary nozzle.
-    #define MESH_TEST_LAYER_HEIGHT   0.2  // (mm) Default layer height for the G26 Mesh Validation Tool.
-    #define MESH_TEST_HOTEND_TEMP  205.0  // (c)  Default nozzle temperature for the G26 Mesh Validation Tool.
-    #define MESH_TEST_BED_TEMP      60.0  // (c)  Default bed temperature for the G26 Mesh Validation Tool.
-  #endif
-
-=======
->>>>>>> origin/bugfix-2.0.x
   #define UBL_MESH_EDIT_MOVES_Z     // Sophisticated users prefer no movement of nozzle
   #define UBL_SAVE_ACTIVE_ON_M500   // Save the currently active mesh in the current slot on M500
 
