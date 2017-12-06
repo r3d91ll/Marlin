@@ -173,6 +173,7 @@ void clean_up_after_endstop_or_probe_move();
       || ENABLED(NOZZLE_CLEAN_FEATURE)                                             \
       || ENABLED(NOZZLE_PARK_FEATURE)                                              \
       || (ENABLED(ADVANCED_PAUSE_FEATURE) && ENABLED(HOME_BEFORE_FILAMENT_CHANGE)) \
+      || HAS_M206_COMMAND                                                          \
     ) || ENABLED(NO_MOTION_BEFORE_HOMING)
 
 #if HAS_AXIS_UNHOMED_ERR
@@ -291,6 +292,12 @@ void homeaxis(const AxisEnum axis);
  */
 #if ENABLED(DUAL_X_CARRIAGE)
 
+  enum DualXMode {
+    DXC_FULL_CONTROL_MODE,  // DUAL_X_CARRIAGE only
+    DXC_AUTO_PARK_MODE,     // DUAL_X_CARRIAGE only
+    DXC_DUPLICATION_MODE
+  };
+
   extern DualXMode dual_x_carriage_mode;
   extern float inactive_extruder_x_pos,           // used in mode 0 & 1
                raised_parked_position[XYZE],      // used in mode 1
@@ -303,7 +310,13 @@ void homeaxis(const AxisEnum axis);
 
   FORCE_INLINE int x_home_dir(const uint8_t extruder) { return extruder ? X2_HOME_DIR : X_HOME_DIR; }
 
-#endif // DUAL_X_CARRIAGE
+#elif ENABLED(DUAL_NOZZLE_DUPLICATION_MODE)
+
+  enum DualXMode {
+    DXC_DUPLICATION_MODE = 2
+  };
+
+#endif
 
 #if HAS_WORKSPACE_OFFSET || ENABLED(DUAL_X_CARRIAGE)
   void update_software_endstops(const AxisEnum axis);

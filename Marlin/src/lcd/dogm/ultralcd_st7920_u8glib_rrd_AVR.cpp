@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2016, 2017 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
@@ -23,22 +23,15 @@
 // NOTE - the HAL version of the rrd device uses a generic ST7920 device.  See the
 // file u8g_dev_st7920_128x64_HAL.cpp for the HAL version.
 
+#include "../../inc/MarlinConfig.h"
+
+#if ENABLED(U8GLIB_ST7920)
+
 #ifndef U8G_HAL_LINKS
 
-#include "../../Marlin.h"
-
-//#if ENABLED(U8GLIB_ST7920)
-//#if ( ENABLED(SHARED_SPI) || !ENABLED(SHARED_SPI) && (defined(LCD_PINS_D4) &&  LCD_PINS_D4 >= 0) &&  (defined(LCD_PINS_ENABLE) &&  LCD_PINS_ENABLE >= 0))
-
-#define ST7920_CLK_PIN  23
-#define ST7920_DAT_PIN  17
-#define ST7920_CS_PIN   16
-
-/*
 #define ST7920_CLK_PIN  LCD_PINS_D4
 #define ST7920_DAT_PIN  LCD_PINS_ENABLE
 #define ST7920_CS_PIN   LCD_PINS_RS
-*/
 
 //#define PAGE_HEIGHT 8   //128 byte framebuffer
 #define PAGE_HEIGHT 16  //256 byte framebuffer
@@ -61,15 +54,15 @@
   #define CPU_ST7920_DELAY_1 DELAY_0_NOP
   #define CPU_ST7920_DELAY_2 DELAY_0_NOP
   #define CPU_ST7920_DELAY_3 DELAY_1_NOP
-#elif (MOTHERBOARD == BOARD_3DRAG) || (MOTHERBOARD == BOARD_K8200) || (MOTHERBOARD == BOARD_K8400)
+#elif MB(3DRAG) || MB(K8200) || MB(K8400) || MB(SILVER_GATE)
   #define CPU_ST7920_DELAY_1 DELAY_0_NOP
   #define CPU_ST7920_DELAY_2 DELAY_3_NOP
   #define CPU_ST7920_DELAY_3 DELAY_0_NOP
-#elif (MOTHERBOARD == BOARD_MINIRAMBO)
+#elif MB(MINIRAMBO)
   #define CPU_ST7920_DELAY_1 DELAY_0_NOP
   #define CPU_ST7920_DELAY_2 DELAY_4_NOP
   #define CPU_ST7920_DELAY_3 DELAY_0_NOP
-#elif (MOTHERBOARD == BOARD_RAMBO)
+#elif MB(RAMBO)
   #define CPU_ST7920_DELAY_1 DELAY_0_NOP
   #define CPU_ST7920_DELAY_2 DELAY_0_NOP
   #define CPU_ST7920_DELAY_3 DELAY_0_NOP
@@ -97,38 +90,31 @@
   #define U8G_DELAY() u8g_10MicroDelay()
 #endif
 
-
-
 static void ST7920_WRITE_BYTE(uint8_t val) {
   for (uint8_t i = 0; i < 8; i++) {
     WRITE(ST7920_DAT_PIN, val & 0x80);
     WRITE(ST7920_CLK_PIN, HIGH);
     WRITE(ST7920_CLK_PIN, LOW);
-    val = val << 1;
+    val <<= 1;
   }
 }
 
-
 #define ST7920_SET_CMD()         { ST7920_WRITE_BYTE(0xF8); U8G_DELAY(); }
 #define ST7920_SET_DAT()         { ST7920_WRITE_BYTE(0xFA); U8G_DELAY(); }
-#define ST7920_WRITE_NIBBLES(a)     { ST7920_WRITE_BYTE((uint8_t)((a)&0xF0u)); ST7920_WRITE_BYTE((uint8_t)((a)<<4u)); U8G_DELAY(); }
+#define ST7920_WRITE_NIBBLES(a)  { ST7920_WRITE_BYTE((uint8_t)((a)&0xF0u)); ST7920_WRITE_BYTE((uint8_t)((a)<<4u)); U8G_DELAY(); }
 #define ST7920_WRITE_NIBBLES_P(p,l)  { for (uint8_t i = l + 1; --i;) { ST7920_WRITE_BYTE(*p&0xF0); ST7920_WRITE_BYTE(*p<<4); p++; } U8G_DELAY(); }
 
 
 #define ST7920_CS()              { WRITE(ST7920_CS_PIN,1); U8G_DELAY(); }
 #define ST7920_NCS()             { WRITE(ST7920_CS_PIN,0); }
 
-
-
 uint8_t u8g_dev_rrd_st7920_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, void *arg) {
   uint8_t i, y;
   switch (msg) {
     case U8G_DEV_MSG_INIT: {
       OUT_WRITE(ST7920_CS_PIN, LOW);
-
-
-        OUT_WRITE(ST7920_DAT_PIN, LOW);
-        OUT_WRITE(ST7920_CLK_PIN, LOW);
+      OUT_WRITE(ST7920_DAT_PIN, LOW);
+      OUT_WRITE(ST7920_CLK_PIN, LOW);
 
       ST7920_CS();
       u8g_Delay(120);                 //initial delay for boot up
@@ -151,10 +137,10 @@ uint8_t u8g_dev_rrd_st7920_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, vo
       ST7920_NCS();
     }
     break;
-    case U8G_DEV_MSG_STOP:
-      break;
-    case U8G_DEV_MSG_PAGE_NEXT: {
 
+    case U8G_DEV_MSG_STOP: break;
+
+    case U8G_DEV_MSG_PAGE_NEXT: {
       uint8_t* ptr;
       u8g_pb_t* pb = (u8g_pb_t*)(dev->dev_mem);
       y = pb->p.page_y0;
@@ -175,7 +161,6 @@ uint8_t u8g_dev_rrd_st7920_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, vo
         ST7920_WRITE_NIBBLES_P(ptr, (LCD_PIXEL_WIDTH) / 8); //ptr is incremented inside of macro
         y++;
       }
-
       ST7920_NCS();
     }
     break;
@@ -195,6 +180,6 @@ u8g_dev_t u8g_dev_st7920_128x64_rrd_sw_spi = {u8g_dev_rrd_st7920_128x64_fn, &u8g
 
 #pragma GCC reset_options
 
-//#endif //( ENABLED(SHARED_SPI) || !ENABLED(SHARED_SPI) && (defined(LCD_PINS_D4) &&  LCD_PINS_D4 >= 0) &&  (defined(LCD_PINS_ENABLE) &&  LCD_PINS_ENABLE >= 0))
-//#endif // U8GLIB_ST7920
-#endif // AVR
+#endif // U8G_HAL_LINKS
+
+#endif // U8GLIB_ST7920

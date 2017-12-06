@@ -54,12 +54,12 @@
 #include "planner.h"
 #include "motion.h"
 
-#include "../Marlin.h"
 #include "../module/temperature.h"
 #include "../lcd/ultralcd.h"
 #include "../core/language.h"
 #include "../gcode/queue.h"
 #include "../sd/cardreader.h"
+#include "../Marlin.h"
 
 #if MB(ALLIGATOR)
   #include "../feature/dac/dac_dac084s085.h"
@@ -409,8 +409,7 @@ void Stepper::isr() {
   // If there is no current block, attempt to pop one from the buffer
   if (!current_block) {
     // Anything in the buffer?
-    current_block = planner.get_current_block();
-    if (current_block) {
+    if ((current_block = planner.get_current_block())) {
       trapezoid_generator_reset();
 
       // Initialize Bresenham counters to 1/2 the ceiling

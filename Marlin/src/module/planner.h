@@ -144,10 +144,11 @@ class Planner {
       static uint8_t last_extruder;             // Respond to extruder change
     #endif
 
-    static int16_t flow_percentage[EXTRUDERS];  // Extrusion factor for each extruder
+    static int16_t flow_percentage[EXTRUDERS]; // Extrusion factor for each extruder
 
     static float e_factor[EXTRUDERS],               // The flow percentage and volumetric multiplier combine to scale E movement
                  filament_size[EXTRUDERS],          // diameter of filament (in millimeters), typically around 1.75 or 2.85, 0 disables the volumetric calculations for the extruder
+                 volumetric_area_nominal,           // Nominal cross-sectional area
                  volumetric_multiplier[EXTRUDERS];  // Reciprocal of cross-sectional area of filament (in mm^2). Pre-calculated to reduce computation in the planner
                                                     // May be auto-adjusted by a filament width sensor
 
@@ -166,17 +167,36 @@ class Planner {
                  min_travel_feedrate_mm_s;
 
     #if HAS_LEVELING
-      static bool leveling_active;              // Flag that bed leveling is enabled
+      static bool leveling_active;          // Flag that bed leveling is enabled
       #if ABL_PLANAR
         static matrix_3x3 bed_level_matrix; // Transform to compensate for bed level
       #endif
       #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
         static float z_fade_height, inverse_z_fade_height;
       #endif
+    #else
+      static constexpr bool leveling_active = false;
     #endif
 
     #if ENABLED(LIN_ADVANCE)
       static float extruder_advance_k, advance_ed_ratio;
+    #endif
+
+    #if ENABLED(SKEW_CORRECTION)
+      #if ENABLED(SKEW_CORRECTION_GCODE)
+        static float xy_skew_factor;
+      #else
+        static constexpr float xy_skew_factor = XY_SKEW_FACTOR;
+      #endif
+      #if ENABLED(SKEW_CORRECTION_FOR_Z)
+        #if ENABLED(SKEW_CORRECTION_GCODE)
+          static float xz_skew_factor, yz_skew_factor;
+        #else
+          static constexpr float xz_skew_factor = XZ_SKEW_FACTOR, yz_skew_factor = YZ_SKEW_FACTOR;
+        #endif
+      #else
+        static constexpr float xz_skew_factor = 0, yz_skew_factor = 0;
+      #endif
     #endif
 
   private:
@@ -185,7 +205,7 @@ class Planner {
      * The current position of the tool in absolute steps
      * Recalculated if any axis_steps_per_mm are changed by gcode
      */
-    static long position[NUM_AXIS];
+    static int32_t position[NUM_AXIS];
 
     /**
      * Speed of previous path line segment
@@ -219,11 +239,7 @@ class Planner {
       // Old direction bits. Used for speed calculations
       static unsigned char old_direction_bits;
       // Segment times (in µs). Used for speed calculations
-      static long axis_segment_time_us[2][3];
-    #endif
-
-    #if ENABLED(LIN_ADVANCE)
-      static float position_float[NUM_AXIS];
+      static uint32_t axis_segment_time_us[2][3];
     #endif
 
     #if ENABLED(ULTRA_LCD)
@@ -339,17 +355,28 @@ class Planner {
     #endif
 
     /**
+     * Planner::_buffer_steps
+     *
+     * Add a new linear movement to the buffer (in terms of steps).
+     *
+     *  target      - target position in steps units
+     *  fr_mm_s     - (target) speed of the move
+     *  extruder    - target extruder
+     */
+    static void _buffer_steps(const int32_t (&target)[XYZE], float fr_mm_s, const uint8_t extruder);
+
+    /**
      * Planner::_buffer_line
      *
-     * Add a new direct linear movement to the buffer.
+     * Add a new linear movement to the buffer in axis units.
      *
-     * Leveling and kinematics should be applied ahead of this.
+     * Leveling and kinematics should be applied ahead of calling this.
      *
-     *  a,b,c,e   - target position in mm or degrees
-     *  fr_mm_s   - (target) speed of the move (mm/s)
+     *  a,b,c,e   - target positions in mm and/or degrees
+     *  fr_mm_s   - (target) speed of the move
      *  extruder  - target extruder
      */
-    static void _buffer_line(const float &a, const float &b, const float &c, const float &e, float fr_mm_s, const uint8_t extruder);
+    static void _buffer_line(const float &a, const float &b, const float &c, const float &e, const float &fr_mm_s, const uint8_t extruder);
 
     static void _set_position_mm(const float &a, const float &b, const float &c, const float &e);
 
@@ -377,7 +404,7 @@ class Planner {
      * The target is cartesian, it's translated to delta/scara if
      * needed.
      *
-     *  rtarget  - x,y,z,e CARTESIAN target in mm
+     *  cart     - x,y,z,e CARTESIAN target in mm
      *  fr_mm_s  - (target) speed of the move (mm/s)
      *  extruder - target extruder
      */
@@ -438,12 +465,13 @@ class Planner {
     /**
      * The current block. NULL if the buffer is empty.
      * This also marks the block as busy.
+     * WARNING: Called from Stepper ISR context!
      */
     static block_t* get_current_block() {
       if (blocks_queued()) {
         block_t* block = &block_buffer[block_buffer_tail];
         #if ENABLED(ULTRA_LCD)
-          block_buffer_runtime_us -= block->segment_time_us; //We can't be sure how long an active block will take, so don't count it.
+          block_buffer_runtime_us -= block->segment_time_us; // We can't be sure how long an active block will take, so don't count it.
         #endif
         SBI(block->flag, BLOCK_BIT_BUSY);
         return block;
@@ -491,8 +519,8 @@ class Planner {
     /**
      * Get the index of the next / previous block in the ring buffer
      */
-    static int8_t next_block_index(int8_t block_index) { return BLOCK_MOD(block_index + 1); }
-    static int8_t prev_block_index(int8_t block_index) { return BLOCK_MOD(block_index - 1); }
+    static int8_t next_block_index(const int8_t block_index) { return BLOCK_MOD(block_index + 1); }
+    static int8_t prev_block_index(const int8_t block_index) { return BLOCK_MOD(block_index - 1); }
 
     /**
      * Calculate the distance (not time) it takes to accelerate
@@ -504,7 +532,7 @@ class Planner {
     }
 
     /**
-     * Return the point at which you must start braking (at the rate of -'acceleration') if
+     * Return the point at which you must start braking (at the rate of -'accel') if
      * you start at 'initial_rate', accelerate (until reaching the point), and want to end at
      * 'final_rate' after traveling 'distance'.
      *
