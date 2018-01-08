@@ -399,8 +399,7 @@ void GcodeSuite::process_parsed_command() {
       #endif
 
       #if ENABLED(PARK_HEAD_ON_PAUSE)
-        case 125: // M125: Store current position and move to filament change position
-          M125(); break;
+        case 125: M125(); break;  // M125: Store current position and move to filament change position
       #endif
 
       #if ENABLED(BARICUDA)
@@ -610,6 +609,9 @@ void GcodeSuite::process_parsed_command() {
       case 502: M502(); break;    // M502: Revert to default settings
       #if DISABLED(DISABLE_M503)
         case 503: M503(); break;  // M503: print settings currently in memory
+      #endif
+      #if ENABLED(EEPROM_SETTINGS)
+        case 504: M504(); break;  // M504: Validate EEPROM contents
       #endif
 
       #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
