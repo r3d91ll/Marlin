@@ -89,6 +89,27 @@ static const uint8_t u8g_dev_st7920_128x64_HAL_init_seq[] PROGMEM = {
   U8G_ESC_END                /* end of sequence */
 };
 
+void clear_graphics_DRAM(u8g_t *u8g, u8g_dev_t *dev){
+  u8g_SetChipSelect(u8g, dev, 1);
+  u8g_Delay(1);
+  u8g_SetAddress(u8g, dev, 0);         // cmd mode
+  u8g_WriteByte(u8g, dev, 0x08);       //display off, cursor+blink off
+  u8g_WriteByte(u8g, dev, 0x3E);       //extended mode + GDRAM active
+  for (uint8_t y = 0; y < (HEIGHT) / 2; y++) { //clear GDRAM
+    u8g_WriteByte(u8g, dev, 0x80 | y); //set y
+    u8g_WriteByte(u8g, dev, 0x80);     //set x = 0
+    u8g_SetAddress(u8g, dev, 1);                  /* data mode */
+    for (uint8_t i = 0; i < 2 * (WIDTH) / 8; i++) //2x width clears both segments
+      u8g_WriteByte(u8g, dev, 0);
+    u8g_SetAddress(u8g, dev, 0);           /* cmd mode */
+  }
+
+  u8g_WriteByte(u8g, dev, 0x0C); //display on, cursor+blink off
+
+  u8g_SetChipSelect(u8g, dev, 0);
+
+}
+
 uint8_t u8g_dev_st7920_128x64_HAL_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, void *arg)
 {
   switch(msg)
@@ -96,11 +117,11 @@ uint8_t u8g_dev_st7920_128x64_HAL_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, vo
     case U8G_DEV_MSG_INIT:
       u8g_InitCom(u8g, dev, U8G_SPI_CLK_CYCLE_400NS);
       u8g_WriteEscSeqP(u8g, dev, u8g_dev_st7920_128x64_HAL_init_seq);
+      clear_graphics_DRAM(u8g, dev);
       break;
     case U8G_DEV_MSG_STOP:
       break;
-    case U8G_DEV_MSG_PAGE_NEXT:
-      {
+    case U8G_DEV_MSG_PAGE_NEXT: {
         uint8_t y, i;
         uint8_t *ptr;
         u8g_pb_t *pb = (u8g_pb_t *)(dev->dev_mem);
@@ -144,13 +165,13 @@ uint8_t u8g_dev_st7920_128x64_HAL_4x_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg,
     case U8G_DEV_MSG_INIT:
       u8g_InitCom(u8g, dev, U8G_SPI_CLK_CYCLE_400NS);
       u8g_WriteEscSeqP(u8g, dev, u8g_dev_st7920_128x64_HAL_init_seq);
+      clear_graphics_DRAM(u8g, dev);
       break;
 
     case U8G_DEV_MSG_STOP:
       break;
 
-    case U8G_DEV_MSG_PAGE_NEXT:
-      {
+    case U8G_DEV_MSG_PAGE_NEXT: {
         uint8_t y, i;
         uint8_t *ptr;
         u8g_pb_t *pb = (u8g_pb_t *)(dev->dev_mem);
@@ -199,7 +220,7 @@ U8G_PB_DEV(u8g_dev_st7920_128x64_HAL_hw_spi, WIDTH, HEIGHT, PAGE_HEIGHT, u8g_dev
 u8g_dev_t u8g_dev_st7920_128x64_HAL_4x_hw_spi = { u8g_dev_st7920_128x64_HAL_4x_fn, &u8g_dev_st7920_128x64_HAL_4x_pb, U8G_COM_ST7920_HAL_HW_SPI };
 
 
-#ifdef U8G_HAL_LINKS
+#if defined(U8G_HAL_LINKS) || defined(__SAM3X8E__)
   // Also use this device for HAL version of rrd class. This results in the same device being used
   // for the ST7920 for HAL systems no matter what is selected in ultralcd_impl_DOGM.h.
   u8g_dev_t u8g_dev_st7920_128x64_rrd_sw_spi = { u8g_dev_st7920_128x64_HAL_4x_fn, &u8g_dev_st7920_128x64_HAL_4x_pb, U8G_COM_ST7920_HAL_SW_SPI };
