@@ -574,7 +574,7 @@
  * Override with M201
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_MAX_ACCELERATION      { 500, 500, 600, 2000 }
+#define DEFAULT_MAX_ACCELERATION      { 500 500, 200, 600}
 
 /**
  * Default Acceleration (change/s) change = mm/s
@@ -584,9 +584,9 @@
  *   M204 R    Retract Acceleration
  *   M204 T    Travel Acceleration
  */
-#define DEFAULT_ACCELERATION          500    // X, Y, Z and E acceleration for printing moves
-#define DEFAULT_RETRACT_ACCELERATION  400    // E acceleration for retracts
-#define DEFAULT_TRAVEL_ACCELERATION   400    // X, Y, Z acceleration for travel (non printing) moves
+#define DEFAULT_ACCELERATION          400    // X, Y, Z and E acceleration for printing moves
+#define DEFAULT_RETRACT_ACCELERATION  600    // E acceleration for retracts
+#define DEFAULT_TRAVEL_ACCELERATION   500    // X, Y, Z acceleration for travel (non printing) moves
 
 /**
  * Default Jerk (mm/s)
@@ -596,8 +596,8 @@
  * When changing speed and direction, if the difference is less than the
  * value set here, it may happen instantaneously.
  */
-#define DEFAULT_XJERK                  5
-#define DEFAULT_YJERK                  5
+#define DEFAULT_XJERK                  10
+#define DEFAULT_YJERK                  10
 #define DEFAULT_ZJERK                  0.3
 #define DEFAULT_EJERK                  5.0
 
@@ -724,7 +724,7 @@
 #define Z_PROBE_SPEED_FAST HOMING_FEEDRATE_Z
 
 // Speed for the "accurate" probe of each point
-#define Z_PROBE_SPEED_SLOW (Z_PROBE_SPEED_FAST / 3)
+#define Z_PROBE_SPEED_SLOW (Z_PROBE_SPEED_FAST / 2)
 
 // The number of probes to perform at each point.
 //   Set to 2 for a fast/slow probe, using the second probe result.
@@ -1049,7 +1049,7 @@
 #endif
 
 // Add a menu item to move between bed corners for manual bed adjustment
-//#define LEVEL_BED_CORNERS
+#define LEVEL_BED_CORNERS
 
 /**
  * Commands to execute at the end of G29 probing.
@@ -1382,8 +1382,9 @@
  * SD CARD: SPI SPEED
  *
  * Enable one of the following items for a slower SPI transfer speed.
- * This may be required to resolve "volume init" errors.
+ * This may be required to resolve "volume init" errors or LCD issues.
  */
+
 //#define SPI_SPEED SPI_HALF_SPEED
 //#define SPI_SPEED SPI_QUARTER_SPEED
 //#define SPI_SPEED SPI_EIGHTH_SPEED
@@ -1481,6 +1482,7 @@
 // ULTIPANEL as seen on Thingiverse.
 //
 //#define ULTIPANEL
+
 
 //
 // PanelOne from T3P3 (via RAMPS 1.4 AUX2/AUX3)
@@ -1634,6 +1636,7 @@
 //
 // SSD1306 OLED full graphics generic display
 //
+//#define U8GLIB_ST7920
 //#define U8GLIB_SSD1306
 
 //
