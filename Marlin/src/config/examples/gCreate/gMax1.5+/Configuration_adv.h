@@ -613,6 +613,9 @@
  * printing performance versus fast display updates.
  */
 #if ENABLED(DOGLCD)
+  // Show SD percentage next to the progress bar
+  //#define DOGM_SD_PERCENT
+
   // Enable to save many cycles by drawing a hollow frame on the Info Screen
   #define XYZ_HOLLOW_FRAME
 
@@ -1149,6 +1152,22 @@
   //#define TMC_DEBUG
 
   /**
+   * M915 Z Axis Calibration
+   *
+   * - Adjust Z stepper current,
+   * - Drive the Z axis to its physical maximum, and
+   * - Home Z to account for the lost steps.
+   *
+   * Use M915 Snn to specify the current.
+   * Use M925 Znn to add extra Z height to Z_MAX_POS.
+   */
+  //#define TMC_Z_CALIBRATION
+  #if ENABLED(TMC_Z_CALIBRATION)
+    #define CALIBRATION_CURRENT 250
+    #define CALIBRATION_EXTRA_HEIGHT 10
+  #endif
+
+  /**
    * You can set your own advanced settings by filling in predefined functions.
    * A list of available functions can be found on the library github page
    * https://github.com/teemuatlut/TMC2130Stepper
@@ -1543,7 +1562,6 @@
  * Fully assembled MAX7219 boards can be found on the internet for under $2(US).
  * For example, see https://www.ebay.com/sch/i.html?_nkw=332349290049
  */
-
 #define MAX7219_DEBUG
 #if ENABLED(MAX7219_DEBUG)
   #define MAX7219_CLK_PIN   64  // 77 on Re-ARM       // Configuration of the 3 pins to control the display
