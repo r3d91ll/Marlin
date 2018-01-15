@@ -230,7 +230,7 @@
 
 #include "utf_mapper.h"
 
-uint16_t lcd_contrast; // Initialized by settings.load()
+int16_t lcd_contrast; // Initialized by settings.load()
 static char currentfont = 0;
 
 // The current graphical page being rendered
@@ -489,8 +489,6 @@ inline void lcd_implementation_status_message(const bool blink) {
     lcd_print_utf(lcd_status_message);
   #endif
 }
-
-//#define DOGM_SD_PERCENT
 
 static void lcd_implementation_status_screen() {
 
