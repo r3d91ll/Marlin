@@ -92,6 +92,9 @@
 //
 //#define SHOW_CUSTOM_BOOTSCREEN
 
+// Enable to show the bitmap in Marlin/_Statusscreen.h on the status screen.
+//#define CUSTOM_STATUS_SCREEN_IMAGE
+
 // @section machine
 
 /**
@@ -102,6 +105,15 @@
  * :[-1, 0, 1, 2, 3, 4, 5, 6, 7]
  */
 #define SERIAL_PORT -1
+
+/**
+ * Select a secondary serial port on the board to use for communication with the host.
+ * This allows the connection of wireless adapters (for instance) to non-default port pins.
+ * Serial port -1 is the USB emulated serial port, if avaialble.
+ *
+ * :[-1, 0, 1, 2, 3, 4, 5, 6, 7]
+ */
+#define SERIAL_PORT_2 -1
 
 /**
  * This setting determines the communication speed of the printer.
@@ -254,7 +266,7 @@
  *     2 : 200k thermistor - ATC Semitec 204GT-2 (4.7k pullup)
  *     3 : Mendel-parts thermistor (4.7k pullup)
  *     4 : 10k thermistor !! do not use it for a hotend. It gives bad resolution at high temp. !!
- *     5 : 100K thermistor - ATC Semitec 104GT-2 (Used in ParCan & J-Head) (4.7k pullup)
+ *     5 : 100K thermistor - ATC Semitec 104GT-2/104NT-4-R025H42G (Used in ParCan & J-Head) (4.7k pullup)
  *     6 : 100k EPCOS - Not as accurate as table 1 (created using a fluke thermocouple) (4.7k pullup)
  *     7 : 100k Honeywell thermistor 135-104LAG-J01 (4.7k pullup)
  *    71 : 100k Honeywell thermistor 135-104LAF-J01 (4.7k pullup)
@@ -1614,6 +1626,36 @@
 // TinyBoy2 128x64 OLED / Encoder Panel
 //
 //#define OLED_PANEL_TINYBOY2
+
+//
+// Makeboard 3D Printer Parts 3D Printer Mini Display 1602 Mini Controller
+// https://www.aliexpress.com/item/Micromake-Makeboard-3D-Printer-Parts-3D-Printer-Mini-Display-1602-Mini-Controller-Compatible-with-Ramps-1/32765887917.html
+//
+//#define MAKEBOARD_MINI_2_LINE_DISPLAY_1602
+
+//
+// MKS MINI12864 with graphic controller and SD support
+// http://reprap.org/wiki/MKS_MINI_12864
+//
+//#define MKS_MINI_12864
+
+//
+// Factory display for Creality CR-10
+// https://www.aliexpress.com/item/Universal-LCD-12864-3D-Printer-Display-Screen-With-Encoder-For-CR-10-CR-7-Model/32833148327.html
+//
+// This is RAMPS-compatible using a single 10-pin connector.
+// (For CR-10 owners who want to replace the Melzi Creality board but retain the display)
+//
+//#define CR10_STOCKDISPLAY
+
+//
+// MKS OLED 1.3" 128 × 64 FULL GRAPHICS CONTROLLER
+// http://reprap.org/wiki/MKS_12864OLED
+//
+// Tiny, but very sharp OLED display
+//
+//#define MKS_12864OLED          // Uses the SH1106 controller (default)
+//#define MKS_12864OLED_SSD1306  // Uses the SSD1306 controller
 
 //
 // AZSMZ 12864 LCD with SD
