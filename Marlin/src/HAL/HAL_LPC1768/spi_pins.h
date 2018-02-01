@@ -32,6 +32,13 @@
 
   // A custom cable is needed. See the README file in the
   // Marlin\src\config\examples\Mks\Sbase directory
+/*
+  #define SCK_PIN           P0_07  // J8-2 (moved from EXP2 P0.7)
+  #define MISO_PIN          P0_08  // J8-3 (moved from EXP2 P0.8)
+  #define MOSI_PIN          P0_09  // J8-4 (moved from EXP2 P0.5)
+  #define SS_PIN            P0_28
+  #define SD_DETECT_PIN     P0_27
+*/
 
   #define SCK_PIN           P1_22  // J8-2 (moved from EXP2 P0.7)
   #define MISO_PIN          P1_23  // J8-3 (moved from EXP2 P0.8)
