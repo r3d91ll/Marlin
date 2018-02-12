@@ -111,12 +111,12 @@
 #define SERIAL_PORT 0
 
 /**
-  * Select a secondary serial port on the board to use for communication with the host.
-  * This allows the connection of wireless adapters (for instance) to non-default port pins.
-  * Serial port -1 is the USB emulated serial port, if avaialble.
-  *
-  * :[-1, 0, 1, 2, 3, 4, 5, 6, 7]
-  */
+ * Select a secondary serial port on the board to use for communication with the host.
+ * This allows the connection of wireless adapters (for instance) to non-default port pins.
+ * Serial port -1 is the USB emulated serial port, if avaialble.
+ *
+ * :[-1, 0, 1, 2, 3, 4, 5, 6, 7]
+ */
 #define SERIAL_PORT_2 -1
 
 /**
@@ -249,6 +249,15 @@
   // Enable this option to leave the PSU off at startup.
   // Power to steppers and heaters will need to be turned on with M80.
   //#define PS_DEFAULT_OFF
+
+  //#define AUTO_POWER_CONTROL        // Enable automatic control of the PS_ON pin
+  #if ENABLED(AUTO_POWER_CONTROL)
+    #define AUTO_POWER_FANS           // Turn on PSU if fans need power
+    #define AUTO_POWER_E_FANS
+    #define AUTO_POWER_CONTROLLERFAN
+    #define POWER_TIMEOUT 30
+  #endif
+
 #endif
 
 // @section temperature
@@ -662,7 +671,7 @@
  *
  * Enable this option for a probe connected to the Z Min endstop pin.
  */
-#define Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN
+//#define Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN
 
 /**
  * Z_MIN_PROBE_ENDSTOP
@@ -683,7 +692,7 @@
  * disastrous consequences. Use with caution and do your homework.
  *
  */
-//#define Z_MIN_PROBE_ENDSTOP
+#define Z_MIN_PROBE_ENDSTOP
 
 /**
  * Probe Type
@@ -1679,6 +1688,12 @@
 //#define LCD_FOR_MELZI
 
 //
+// LCD for Malyan M200 printers.
+// This requires SDSUPPORT to be enabled
+//
+//#define MALYAN_LCD
+
+//
 // CONTROLLER TYPE: I2C
 //
 // Note: These controllers require the installation of Arduino's LiquidCrystal_I2C
@@ -1735,6 +1750,12 @@
   //#define U8GLIB_SSD1306
   #define U8GLIB_SH1106
 #endif
+
+//
+// Original Ulticontroller from Ultimaker 2 printer with SSD1309 I2C display and encoder
+// https://github.com/Ultimaker/Ultimaker2/tree/master/1249_Ulticontroller_Board_(x1)
+//
+//#define ULTI_CONTROLLER
 
 //
 // CONTROLLER TYPE: Shift register panels

@@ -260,7 +260,8 @@ void GcodeSuite::G29() {
 
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
-      if (parser.seen('W')) {
+      const bool seen_w = parser.seen('W');
+      if (seen_w) {
         if (!leveling_is_valid()) {
           SERIAL_ERROR_START();
           SERIAL_ERRORLNPGM("No bilinear grid");
@@ -298,10 +299,14 @@ void GcodeSuite::G29() {
         return;
       } // parser.seen('W')
 
+    #else
+
+      constexpr bool seen_w = false;
+
     #endif
 
     // Jettison bed leveling data
-    if (parser.seen('J')) {
+    if (!seen_w && parser.seen('J')) {
       reset_bed_level();
       return;
     }
@@ -328,8 +333,12 @@ void GcodeSuite::G29() {
       abl_grid_points_y = parser.intval('Y', GRID_MAX_POINTS_Y);
       if (parser.seenval('P')) abl_grid_points_x = abl_grid_points_y = parser.value_int();
 
-      if (abl_grid_points_x < 2 || abl_grid_points_y < 2) {
-        SERIAL_PROTOCOLLNPGM("?Number of probe points is implausible (2 minimum).");
+      if (!WITHIN(abl_grid_points_x, 2, GRID_MAX_POINTS_X)) {
+        SERIAL_PROTOCOLLNPGM("?Probe points (X) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_X) ").");
+        return;
+      }
+      if (!WITHIN(abl_grid_points_y, 2, GRID_MAX_POINTS_Y)) {
+        SERIAL_PROTOCOLLNPGM("?Probe points (Y) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_Y) ").");
         return;
       }
 
