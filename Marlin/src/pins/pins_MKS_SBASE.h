@@ -46,8 +46,8 @@
 //
 //#define SERVO0_PIN         P1_23  // J8-3 (low jitter)
 //#define SERVO1_PIN         P2_12  // J8-4
-#define SERVO0_PIN         P2_11  // J8-5
-#define SERVO1_PIN         P4_28  // J8-6
+//#define SERVO0_PIN         P2_11  // J8-5
+#define SERVO0_PIN         P4_28  // J8-6
 
 //
 // Limit Switches
