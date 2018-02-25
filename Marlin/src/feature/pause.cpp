@@ -51,6 +51,7 @@
 
 #include "../libs/buzzer.h"
 #include "../libs/nozzle.h"
+#include "pause.h"
 
 // private:
 
@@ -500,7 +501,7 @@ void resume_print(const float &load_length/*=0*/, const float &purge_length/*=AD
   planner.set_e_position_mm(destination[E_AXIS] = current_position[E_AXIS] = resume_position[E_AXIS]);
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-    filament_ran_out = false;
+    runout.reset();
   #endif
 
   #if ENABLED(ULTIPANEL)

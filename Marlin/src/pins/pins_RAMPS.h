@@ -45,10 +45,12 @@
  */
 
 #if ENABLED(TARGET_LPC1768)
-  #error "Oops!  Use 'BOARD_RAMPS_RE_ARM' to build for Re-ARM."
+  #error "Oops!  Set MOTHERBOARD to an LPC1768-based board when building for LPC1768."
+#elif defined(__STM32F1__)
+  #error "Oops!  Set MOTHERBOARD to an STM32F1-based board when building for STM32F1."
 #endif
 
-#if !ENABLED(IS_RAMPS_SMART) && !ENABLED(IS_RAMPS_DUO) && !ENABLED(IS_RAMPS4DUE) && !ENABLED(TARGET_LPC1768)
+#if DISABLED(IS_RAMPS_SMART) && DISABLED(IS_RAMPS_DUO) && DISABLED(IS_RAMPS4DUE) && DISABLED(TARGET_LPC1768)
   #if !defined(__AVR_ATmega1280__) && !defined(__AVR_ATmega2560__)
     #error "Oops!  Make sure you have 'Arduino Mega' selected from the 'Tools -> Boards' menu."
   #endif
@@ -155,7 +157,7 @@
   //#define X2_HARDWARE_SERIAL Serial1
   //#define Y_HARDWARE_SERIAL  Serial1
   //#define Y2_HARDWARE_SERIAL Serial1
-  //#define Z_HARDWARE_SERIAL  Serial3
+  //#define Z_HARDWARE_SERIAL  Serial1
   //#define Z2_HARDWARE_SERIAL Serial1
   //#define E0_HARDWARE_SERIAL Serial1
   //#define E1_HARDWARE_SERIAL Serial1

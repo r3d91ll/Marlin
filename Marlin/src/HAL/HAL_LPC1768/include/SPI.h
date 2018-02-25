@@ -20,15 +20,27 @@
  *
  */
 
-/**
- * Creality Ender pin assignments
- *
- * Applies to the following boards:
- *
- *  Creality Ender-2
- *  Creality Ender-4
- */
+#pragma once
 
-#define BOARD_NAME "Creality Ender"
+#include "../../HAL_SPI.h"
 
-#include "pins_SANGUINOLOLU_12.h"
+#include <stdint.h>
+
+#define MSBFIRST 1
+#define SPI_MODE3 0
+
+class SPISettings {
+  public:
+    SPISettings(int a, int b, int c) {};
+};
+
+class SPIClass {
+  public:
+    void begin();
+    void beginTransaction(SPISettings foo) {};
+    void endTransaction() {};
+    uint8_t transfer(uint8_t data);
+    uint16_t transfer16(uint16_t data);
+};
+
+extern SPIClass SPI;

@@ -78,7 +78,9 @@
 #elif defined(SDEXTRASLOW)
   #error "SDEXTRASLOW deprecated. Set SPI_SPEED to SPI_QUARTER_SPEED instead."
 #elif defined(FILAMENT_SENSOR)
-  #error "FILAMENT_SENSOR is deprecated. Use FILAMENT_WIDTH_SENSOR instead."
+  #error "FILAMENT_SENSOR is now FILAMENT_WIDTH_SENSOR. Please update your configuration."
+#elif defined(ENDSTOPPULLUP_FIL_RUNOUT)
+  #error "ENDSTOPPULLUP_FIL_RUNOUT is now FIL_RUNOUT_PULLUP. Please update your configuration."
 #elif defined(DISABLE_MAX_ENDSTOPS) || defined(DISABLE_MIN_ENDSTOPS)
   #error "DISABLE_MAX_ENDSTOPS and DISABLE_MIN_ENDSTOPS deprecated. Use individual USE_*_PLUG options instead."
 #elif defined(LANGUAGE_INCLUDE)
@@ -221,6 +223,8 @@
   #error "MIN_RETRACT is now MIN_AUTORETRACT and MAX_AUTORETRACT. Please update your Configuration_adv.h."
 #elif defined(ADVANCE)
   #error "ADVANCE was removed in Marlin 1.1.6. Please use LIN_ADVANCE."
+#elif defined(LIN_ADVANCE_E_D_RATIO)
+  #error "LIN_ADVANCE (1.5) no longer uses LIN_ADVANCE_E_D_RATIO. Check your configuration."
 #elif defined(NEOPIXEL_RGBW_LED)
   #error "NEOPIXEL_RGBW_LED is now NEOPIXEL_LED. Please update your configuration."
 #elif defined(UBL_MESH_INSET)
@@ -239,6 +243,8 @@
   #error "PROBE_DOUBLE_TOUCH is now MULTIPLE_PROBING. Please update your configuration."
 #elif defined(ANET_KEYPAD_LCD)
   #error "ANET_KEYPAD_LCD is now ZONESTAR_LCD. Please update your configuration."
+#elif defined(LCD_I2C_SAINSMART_YWROBOT)
+  #error "LCD_I2C_SAINSMART_YWROBOT is now LCD_SAINSMART_I2C_(1602|2004). Please update your configuration."
 #elif defined(MEASURED_LOWER_LIMIT) || defined(MEASURED_UPPER_LIMIT)
   #error "MEASURED_(UPPER|LOWER)_LIMIT is now FILWIDTH_ERROR_MARGIN. Please update your configuration."
 #elif defined(AUTOMATIC_CURRENT_CONTROL)
@@ -323,12 +329,41 @@ static_assert(X_MAX_LENGTH >= X_BED_SIZE && Y_MAX_LENGTH >= Y_BED_SIZE,
   #endif
 #endif
 
+#if !defined(TARGET_LPC1768) && ( \
+     ENABLED(ENDSTOPPULLDOWNS) \
+  || ENABLED(ENDSTOPPULLDOWN_XMAX) \
+  || ENABLED(ENDSTOPPULLDOWN_YMAX) \
+  || ENABLED(ENDSTOPPULLDOWN_ZMAX) \
+  || ENABLED(ENDSTOPPULLDOWN_XMIN) \
+  || ENABLED(ENDSTOPPULLDOWN_YMIN) \
+  || ENABLED(ENDSTOPPULLDOWN_ZMIN) )
+  #error "PULLDOWN pin mode is not available on the selected board."
+#endif
+
+#if ENABLED(ENDSTOPPULLUPS) && ENABLED(ENDSTOPPULLDOWNS)
+  #error "Enable only one of ENDSTOPPULLUPS or ENDSTOPPULLDOWNS."
+#elif ENABLED(FIL_RUNOUT_PULLUP) && ENABLED(FIL_RUNOUT_PULLDOWN)
+  #error "Enable only one of FIL_RUNOUT_PULLUP or FIL_RUNOUT_PULLDOWN."
+#elif ENABLED(ENDSTOPPULLUP_XMAX) && ENABLED(ENDSTOPPULLDOWN_XMAX)
+  #error "Enable only one of ENDSTOPPULLUP_X_MAX or ENDSTOPPULLDOWN_X_MAX."
+#elif ENABLED(ENDSTOPPULLUP_YMAX) && ENABLED(ENDSTOPPULLDOWN_YMAX)
+  #error "Enable only one of ENDSTOPPULLUP_Y_MAX or ENDSTOPPULLDOWN_Y_MAX."
+#elif ENABLED(ENDSTOPPULLUP_ZMAX) && ENABLED(ENDSTOPPULLDOWN_ZMAX)
+  #error "Enable only one of ENDSTOPPULLUP_Z_MAX or ENDSTOPPULLDOWN_Z_MAX."
+#elif ENABLED(ENDSTOPPULLUP_XMIN) && ENABLED(ENDSTOPPULLDOWN_XMIN)
+  #error "Enable only one of ENDSTOPPULLUP_X_MIN or ENDSTOPPULLDOWN_X_MIN."
+#elif ENABLED(ENDSTOPPULLUP_YMIN) && ENABLED(ENDSTOPPULLDOWN_YMIN)
+  #error "Enable only one of ENDSTOPPULLUP_Y_MIN or ENDSTOPPULLDOWN_Y_MIN."
+#elif ENABLED(ENDSTOPPULLUP_ZMIN) && ENABLED(ENDSTOPPULLDOWN_ZMIN)
+  #error "Enable only one of ENDSTOPPULLUP_Z_MIN or ENDSTOPPULLDOWN_Z_MIN."
+#endif
+
 /**
  * Progress Bar
  */
 #if ENABLED(LCD_PROGRESS_BAR)
-  #if DISABLED(SDSUPPORT)
-    #error "LCD_PROGRESS_BAR requires SDSUPPORT."
+  #if DISABLED(SDSUPPORT) && DISABLED(LCD_SET_PROGRESS_MANUALLY)
+    #error "LCD_PROGRESS_BAR requires SDSUPPORT or LCD_SET_PROGRESS_MANUALLY."
   #elif DISABLED(ULTRA_LCD)
     #error "LCD_PROGRESS_BAR requires a character LCD."
   #elif ENABLED(DOGLCD)
@@ -398,11 +433,21 @@ static_assert(X_MAX_LENGTH >= X_BED_SIZE && Y_MAX_LENGTH >= Y_BED_SIZE,
 #endif
 
 /**
- * Filament Runout needs a pin and either SD Support or Auto print start detection
+ * Filament Runout needs one or more pins and either SD Support or Auto print start detection
  */
 #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-  #if !HAS_FIL_RUNOUT
+  #if !PIN_EXISTS(FIL_RUNOUT)
     #error "FILAMENT_RUNOUT_SENSOR requires FIL_RUNOUT_PIN."
+  #elif NUM_RUNOUT_SENSORS > E_STEPPERS
+    #error "NUM_RUNOUT_SENSORS cannot exceed the number of E steppers."
+  #elif NUM_RUNOUT_SENSORS > 1 && !PIN_EXISTS(FIL_RUNOUT2)
+    #error "FILAMENT_RUNOUT_SENSOR with NUM_RUNOUT_SENSORS > 1 requires FIL_RUNOUT2_PIN."
+  #elif NUM_RUNOUT_SENSORS > 2 && !PIN_EXISTS(FIL_RUNOUT3)
+    #error "FILAMENT_RUNOUT_SENSOR with NUM_RUNOUT_SENSORS > 2 requires FIL_RUNOUT3_PIN."
+  #elif NUM_RUNOUT_SENSORS > 3 && !PIN_EXISTS(FIL_RUNOUT4)
+    #error "FILAMENT_RUNOUT_SENSOR with NUM_RUNOUT_SENSORS > 3 requires FIL_RUNOUT4_PIN."
+  #elif NUM_RUNOUT_SENSORS > 4 && !PIN_EXISTS(FIL_RUNOUT5)
+    #error "FILAMENT_RUNOUT_SENSOR with NUM_RUNOUT_SENSORS > 4 requires FIL_RUNOUT5_PIN."
   #elif DISABLED(SDSUPPORT) && DISABLED(PRINTJOB_TIMER_AUTOSTART)
     #error "FILAMENT_RUNOUT_SENSOR requires SDSUPPORT or PRINTJOB_TIMER_AUTOSTART."
   #elif DISABLED(ADVANCED_PAUSE_FEATURE)
@@ -507,10 +552,6 @@ static_assert(X_MAX_LENGTH >= X_BED_SIZE && Y_MAX_LENGTH >= Y_BED_SIZE,
   #elif ENABLED(LIN_ADVANCE)
     #error "MIXING_EXTRUDER is incompatible with LIN_ADVANCE."
   #endif
-#endif
-
-#if ENABLED(LIN_ADVANCE) && !IS_CARTESIAN
-  #error "Sorry! LIN_ADVANCE is only compatible with Cartesian."
 #endif
 
 /**
@@ -793,6 +834,8 @@ static_assert(1 >= 0
     #error "AUTO_BED_LEVELING_UBL requires EEPROM_SETTINGS. Please update your configuration."
   #elif !WITHIN(GRID_MAX_POINTS_X, 3, 15) || !WITHIN(GRID_MAX_POINTS_Y, 3, 15)
     #error "GRID_MAX_POINTS_[XY] must be a whole number between 3 and 15."
+  #elif DISABLED(RESTORE_LEVELING_AFTER_G28)
+    #error "AUTO_BED_LEVELING_UBL (<=1.1.8) always has RESTORE_LEVELING_AFTER_G28 enabled. To keep this behavior, #define RESTORE_LEVELING_AFTER_G28. To keep it disabled comment out this line in SanityCheck.h."
   #else
     static_assert(WITHIN(UBL_PROBE_PT_1_X, MIN_PROBE_X, MAX_PROBE_X), "UBL_PROBE_PT_1_X can't be reached by the Z probe.");
     static_assert(WITHIN(UBL_PROBE_PT_2_X, MIN_PROBE_X, MAX_PROBE_X), "UBL_PROBE_PT_2_X can't be reached by the Z probe.");
@@ -886,10 +929,18 @@ static_assert(1 >= 0
 #endif
 
 /**
- * Homing Bump
+ * Homing
  */
 #if X_HOME_BUMP_MM < 0 || Y_HOME_BUMP_MM < 0 || Z_HOME_BUMP_MM < 0
   #error "[XYZ]_HOME_BUMP_MM must be greater than or equal to 0."
+#endif
+
+#if ENABLED(CODEPENDENT_XY_HOMING)
+  #if ENABLED(QUICK_HOME)
+    #error "QUICK_HOME is incompatible with CODEPENDENT_XY_HOMING."
+  #elif IS_KINEMATIC
+    #error "CODEPENDENT_XY_HOMING requires a Cartesian setup."
+  #endif
 #endif
 
 /**
@@ -1398,7 +1449,10 @@ static_assert(1 >= 0
   #if ENABLED(RA_CONTROL_PANEL)
     + 1
   #endif
-  #if ENABLED(LCD_I2C_SAINSMART_YWROBOT)
+  #if ENABLED(LCD_SAINSMART_I2C_1602)
+    + 1
+  #endif
+  #if ENABLED(LCD_SAINSMART_I2C_2004)
     + 1
   #endif
   #if ENABLED(LCM1602)

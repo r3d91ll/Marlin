@@ -216,18 +216,6 @@ void setup_killpin() {
   #endif
 }
 
-#if ENABLED(FILAMENT_RUNOUT_SENSOR)
-
-  void setup_filrunoutpin() {
-    #if ENABLED(ENDSTOPPULLUP_FIL_RUNOUT)
-      SET_INPUT_PULLUP(FIL_RUNOUT_PIN);
-    #else
-      SET_INPUT(FIL_RUNOUT_PIN);
-    #endif
-  }
-
-#endif
-
 void setup_powerhold() {
   #if HAS_SUICIDE
     OUT_WRITE(SUICIDE_PIN, HIGH);
@@ -284,6 +272,9 @@ void quickstop_stepper() {
 }
 
 void enable_all_steppers() {
+  #if ENABLED(AUTO_POWER_CONTROL)
+    powerManager.power_on();
+  #endif
   enable_X();
   enable_Y();
   enable_Z();
@@ -334,11 +325,7 @@ void disable_all_steppers() {
 void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-    if ((IS_SD_PRINTING || print_job_timer.isRunning())
-      && READ(FIL_RUNOUT_PIN) == FIL_RUNOUT_INVERTING
-      && thermalManager.targetHotEnoughToExtrude(active_extruder)
-    )
-      handle_filament_runout();
+    runout.run();
   #endif
 
   if (commands_in_queue < BUFSIZE) get_available_commands();
@@ -373,7 +360,7 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
       disable_e_steppers();
     #endif
     #if ENABLED(AUTO_BED_LEVELING_UBL) && ENABLED(ULTIPANEL)  // Only needed with an LCD
-      ubl.lcd_map_control = defer_return_to_status = false;
+      if (ubl.lcd_map_control) ubl.lcd_map_control = defer_return_to_status = false;
     #endif
   }
 
@@ -425,6 +412,10 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
 
   #if ENABLED(USE_CONTROLLER_FAN)
     controllerfan_update(); // Check if fan should be turned on to cool stepper drivers down
+  #endif
+
+  #if ENABLED(AUTO_POWER_CONTROL)
+    powerManager.check();
   #endif
 
   #if ENABLED(EXTRUDER_RUNOUT_PREVENT)
@@ -659,7 +650,7 @@ void setup() {
   #endif
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-    setup_filrunoutpin();
+    runout.setup();
   #endif
 
   setup_killpin();
@@ -834,6 +825,7 @@ void setup() {
   #endif
 
   lcd_init();
+  LCD_MESSAGEPGM(WELCOME_MSG);
 
   #if ENABLED(SHOW_BOOTSCREEN)
     lcd_bootscreen();

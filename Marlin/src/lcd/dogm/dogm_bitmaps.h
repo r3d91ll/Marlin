@@ -37,7 +37,7 @@
 
   #if ENABLED(SHOW_CUSTOM_BOOTSCREEN)
 
-    #include "../../_Bootscreen.h"
+    #include "../../../_Bootscreen.h"
 
     #ifndef CUSTOM_BOOTSCREEN_TIMEOUT
       #define CUSTOM_BOOTSCREEN_TIMEOUT 2500
@@ -118,21 +118,23 @@
 
   #endif
 
+  #ifndef START_BMP_BYTEWIDTH
+    #define START_BMP_BYTEWIDTH ((START_BMPWIDTH + 7) / 8)
+  #endif
+  #ifndef START_BMPHEIGHT
+    #define START_BMPHEIGHT (sizeof(start_bmp) / (START_BMP_BYTEWIDTH))
+  #endif
+
+  static_assert(sizeof(start_bmp) == (START_BMP_BYTEWIDTH) * (START_BMPHEIGHT), "Bootscreen (start_bmp) dimensions don't match data.");
+
 #endif
-
-
-// Here comes a compile-time operation to match the extruder symbols
-// on the info screen to the set number of extruders in configuration.h
-//
-// When only one extruder is selected, the "1" on the symbol will not
-// be displayed.
 
 #if ENABLED(CUSTOM_STATUS_SCREEN_IMAGE)
 
   // This file must define STATUS_SCREENWIDTH and status_screen{0,1}_bmp.
   // It can also define STATUS_SCREEN_X, STATUS_SCREEN_{BED,FAN}_TEXT_X and
   // STATUS_SCREEN_HOTEND_TEXT_X(i) to modify draw locations.
-  #include "_Statusscreen.h"
+  #include "../../../_Statusscreen.h"
 
 #elif HAS_TEMP_BED
 
@@ -601,13 +603,6 @@
 
 #endif // BABYSTEP_ZPROBE_GFX_OVERLAY || MESH_EDIT_GFX_OVERLAY
 
-#ifndef START_BMP_BYTEWIDTH
-  #define START_BMP_BYTEWIDTH ((START_BMPWIDTH + 7) / 8)
-#endif
-#ifndef START_BMPHEIGHT
-  #define START_BMPHEIGHT (sizeof(start_bmp) / (START_BMP_BYTEWIDTH))
-#endif
-
 #ifndef CUSTOM_BOOTSCREEN_BMP_BYTEWIDTH
   #define CUSTOM_BOOTSCREEN_BMP_BYTEWIDTH ((CUSTOM_BOOTSCREEN_BMPWIDTH + 7) / 8)
 #endif
@@ -644,11 +639,6 @@
 #elif FAN_ANIM_FRAMES > 4
   #error "Only 4 fan animation frames currently supported."
 #endif
-
-//
-// Make sure data size matches
-//
-static_assert(sizeof(start_bmp) == (START_BMP_BYTEWIDTH) * (START_BMPHEIGHT), "Bootscreen (start_bmp) dimensions don't match data.");
 
 #define BMP_SIZE (STATUS_BMP_BYTEWIDTH) * (STATUS_SCREENHEIGHT)
 static_assert(sizeof(status_screen0_bmp) == BMP_SIZE, "Status header (status_screen0_bmp) dimensions don't match data.");

@@ -340,6 +340,40 @@ static void lcd_set_custom_characters(
     B00000
   };
 
+  #if ENABLED(LCD_PROGRESS_BAR)
+
+    // CHARSET_INFO
+    const static PROGMEM byte progress[3][8] = { {
+      B00000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B00000
+    }, {
+      B00000,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B00000
+    }, {
+      B00000,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B00000
+    } };
+
+  #endif // LCD_PROGRESS_BAR
+
   #if ENABLED(SDSUPPORT)
 
     // CHARSET_MENU
@@ -363,40 +397,6 @@ static void lcd_set_custom_characters(
       B00000,
       B00000
     };
-
-    #if ENABLED(LCD_PROGRESS_BAR)
-
-      // CHARSET_INFO
-      const static PROGMEM byte progress[3][8] = { {
-        B00000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B00000
-      }, {
-        B00000,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B00000
-      }, {
-        B00000,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B00000
-      } };
-
-    #endif // LCD_PROGRESS_BAR
 
   #endif // SDSUPPORT
 
@@ -426,23 +426,21 @@ static void lcd_set_custom_characters(
           createChar_P(LCD_FEEDRATE_CHAR, feedrate);
           createChar_P(LCD_CLOCK_CHAR, clock);
 
-          #if ENABLED(SDSUPPORT)
-            #if ENABLED(LCD_PROGRESS_BAR)
-              if (screen_charset == CHARSET_INFO) { // 3 Progress bar characters for info screen
-                for (int16_t i = 3; i--;)
-                  createChar_P(LCD_STR_PROGRESS[i], progress[i]);
-              }
-              else
-            #endif
-              { // SD Card sub-menu special characters
-                createChar_P(LCD_UPLEVEL_CHAR, uplevel);
+          #if ENABLED(LCD_PROGRESS_BAR)
+            if (screen_charset == CHARSET_INFO) { // 3 Progress bar characters for info screen
+              for (int16_t i = 3; i--;)
+                createChar_P(LCD_STR_PROGRESS[i], progress[i]);
+            }
+            else
+          #endif
+            {
+              createChar_P(LCD_UPLEVEL_CHAR, uplevel);
+              #if ENABLED(SDSUPPORT)
+                // SD Card sub-menu special characters
                 createChar_P(LCD_STR_REFRESH[0], refresh);
                 createChar_P(LCD_STR_FOLDER[0], folder);
-              }
-          #else
-            // With no SD support, only need the uplevel character
-            createChar_P(LCD_UPLEVEL_CHAR, uplevel);
-          #endif
+              #endif
+            }
         }
   }
 }
@@ -839,7 +837,7 @@ static void lcd_implementation_status_screen() {
 
     lcd.setCursor(LCD_WIDTH - 8, 1);
     _draw_axis_label(Z_AXIS, PSTR(MSG_Z), blink);
-    lcd.print(ftostr52sp(FIXFLOAT(current_position[Z_AXIS])));
+    lcd.print(ftostr52sp(FIXFLOAT(LOGICAL_Z_POSITION(current_position[Z_AXIS]))));
 
     #if HAS_LEVELING && !TEMP_SENSOR_BED
       lcd.write(planner.leveling_active || blink ? '_' : ' ');
