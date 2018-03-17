@@ -150,7 +150,7 @@ extern "C" {
 
 #define _CAT(a, ...) a ## __VA_ARGS__
 #define HAL_timer_set_compare(timer, compare) (_CAT(TIMER_OCR_, timer) = compare)
-#define HAL_timer_restrain(timer, interval_us) NOLESS(_CAT(TIMER_OCR_, timer), _CAT(TIMER_COUNTER_, timer) + interval_us * HAL_TICKS_PER_US)
+#define HAL_timer_restrain(timer, interval_ticks) NOLESS(_CAT(TIMER_OCR_, timer), _CAT(TIMER_COUNTER_, timer) + interval_ticks)
 
 #define HAL_timer_get_compare(timer) _CAT(TIMER_OCR_, timer)
 #define HAL_timer_get_count(timer) _CAT(TIMER_COUNTER_, timer)
@@ -164,7 +164,7 @@ extern "C" {
 
 // ADC
 #ifdef DIDR2
-  #define HAL_ANALOG_SELECT(pin) do{ if (pin < 8) SBI(DIDR0, pin); else SBI(DIDR2, pin - 8); }while(0)
+  #define HAL_ANALOG_SELECT(pin) do{ if (pin < 8) SBI(DIDR0, pin); else SBI(DIDR2, pin & 0x07); }while(0)
 #else
   #define HAL_ANALOG_SELECT(pin) do{ SBI(DIDR0, pin); }while(0)
 #endif

@@ -157,20 +157,20 @@ volatile long Stepper::endstops_trigsteps[XYZ];
   #define LOCKED_X2_MOTOR locked_x2_motor
   #define LOCKED_Y2_MOTOR locked_y2_motor
   #define LOCKED_Z2_MOTOR locked_z2_motor
-  #define DUAL_ENDSTOP_APPLY_STEP(AXIS,v)                                                                                                             \
-    if (performing_homing) {                                                                                                                          \
-      if (AXIS##_HOME_DIR < 0) {                                                                                                                      \
-        if (!(TEST(endstops.old_endstop_bits, AXIS##_MIN) && (count_direction[AXIS##_AXIS] < 0)) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
-        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MIN) && (count_direction[AXIS##_AXIS] < 0)) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
-      }                                                                                                                                               \
-      else {                                                                                                                                          \
-        if (!(TEST(endstops.old_endstop_bits, AXIS##_MAX) && (count_direction[AXIS##_AXIS] > 0)) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
-        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MAX) && (count_direction[AXIS##_AXIS] > 0)) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
-      }                                                                                                                                               \
-    }                                                                                                                                                 \
-    else {                                                                                                                                            \
-      AXIS##_STEP_WRITE(v);                                                                                                                           \
-      AXIS##2_STEP_WRITE(v);                                                                                                                          \
+  #define DUAL_ENDSTOP_APPLY_STEP(AXIS,v)                                                                                                           \
+    if (performing_homing) {                                                                                                                        \
+      if (AXIS##_HOME_DIR < 0) {                                                                                                                    \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##_MIN) && count_direction[AXIS##_AXIS] < 0) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MIN) && count_direction[AXIS##_AXIS] < 0) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
+      }                                                                                                                                             \
+      else {                                                                                                                                        \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##_MAX) && count_direction[AXIS##_AXIS] > 0) && !LOCKED_##AXIS##_MOTOR) AXIS##_STEP_WRITE(v);     \
+        if (!(TEST(endstops.old_endstop_bits, AXIS##2_MAX) && count_direction[AXIS##_AXIS] > 0) && !LOCKED_##AXIS##2_MOTOR) AXIS##2_STEP_WRITE(v);  \
+      }                                                                                                                                             \
+    }                                                                                                                                               \
+    else {                                                                                                                                          \
+      AXIS##_STEP_WRITE(v);                                                                                                                         \
+      AXIS##2_STEP_WRITE(v);                                                                                                                        \
     }
 #endif
 
@@ -230,8 +230,6 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 #if DISABLED(MIXING_EXTRUDER)
   #define E_APPLY_STEP(v,Q) E_STEP_WRITE(v)
 #endif
-
-
 
 /**
  *         __________________________
@@ -365,8 +363,8 @@ void Stepper::isr() {
     _NEXT_ISR(ocr_val);
 
     #if DISABLED(LIN_ADVANCE)
-      HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL);
-      HAL_ENABLE_ISRs(); // re-enable ISRs
+      HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL * HAL_TICKS_PER_US);
+      HAL_ENABLE_ISRs();
     #endif
 
     return;
@@ -419,14 +417,14 @@ void Stepper::isr() {
         if (current_block->steps[Z_AXIS] > 0) {
           enable_Z();
           _NEXT_ISR(HAL_STEPPER_TIMER_RATE / 1000); // Run at slow speed - 1 KHz
-          HAL_ENABLE_ISRs(); // re-enable ISRs
+          HAL_ENABLE_ISRs();
           return;
         }
       #endif
     }
     else {
       _NEXT_ISR(HAL_STEPPER_TIMER_RATE / 1000); // Run at slow speed - 1 KHz
-      HAL_ENABLE_ISRs(); // re-enable ISRs
+      HAL_ENABLE_ISRs();
       return;
     }
   }
@@ -452,13 +450,16 @@ void Stepper::isr() {
     // Advance the Bresenham counter; start a pulse if the axis needs a step
     #define PULSE_START(AXIS) do{ \
       _COUNTER(AXIS) += current_block->steps[_AXIS(AXIS)]; \
-      if (_COUNTER(AXIS) > 0) _APPLY_STEP(AXIS)(!_INVERT_STEP_PIN(AXIS), 0); }while(0)
+      if (_COUNTER(AXIS) > 0) { _APPLY_STEP(AXIS)(!_INVERT_STEP_PIN(AXIS), 0); } \
+    }while(0)
 
     // Advance the Bresenham counter; start a pulse if the axis needs a step
-    #define STEP_TICK(AXIS) \
+    #define STEP_TICK(AXIS) do { \
       if (_COUNTER(AXIS) > 0) { \
         _COUNTER(AXIS) -= current_block->step_event_count; \
-        count_position[_AXIS(AXIS)] += count_direction[_AXIS(AXIS)]; }
+        count_position[_AXIS(AXIS)] += count_direction[_AXIS(AXIS)]; \
+      } \
+    }while(0)
 
     // Stop an active pulse, if any
     #define PULSE_STOP(AXIS) _APPLY_STEP(AXIS)(_INVERT_STEP_PIN(AXIS), 0)
@@ -727,7 +728,8 @@ void Stepper::isr() {
   }
 
   #if DISABLED(LIN_ADVANCE)
-    HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL);
+    // Make sure stepper ISR doesn't monopolize the CPU
+    HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL * HAL_TICKS_PER_US);
   #endif
 
   // If current block is finished, reset pointer
@@ -736,7 +738,7 @@ void Stepper::isr() {
     planner.discard_current_block();
   }
   #if DISABLED(LIN_ADVANCE)
-    HAL_ENABLE_ISRs(); // re-enable ISRs
+    HAL_ENABLE_ISRs();
   #endif
 }
 
@@ -750,7 +752,7 @@ void Stepper::isr() {
   void Stepper::advance_isr() {
 
     #if ENABLED(MK2_MULTIPLEXER) // For SNMM even-numbered steppers are reversed
-      #define SET_E_STEP_DIR(INDEX) do{ if (e_steps) E## INDEX ##_DIR_WRITE(e_steps < 0 ? !INVERT_E## INDEX ##_DIR ^ TEST(INDEX, 0) : INVERT_E## INDEX ##_DIR ^ TEST(INDEX, 0)); }while(0)
+      #define SET_E_STEP_DIR(INDEX) do{ if (e_steps) E0_DIR_WRITE(e_steps < 0 ? !INVERT_E## INDEX ##_DIR ^ TEST(INDEX, 0) : INVERT_E## INDEX ##_DIR ^ TEST(INDEX, 0)); }while(0)
     #elif ENABLED(DUAL_X_CARRIAGE) || ENABLED(DUAL_NOZZLE_DUPLICATION_MODE)
       #define SET_E_STEP_DIR(INDEX) do{ if (e_steps) { if (e_steps < 0) REV_E_DIR(); else NORM_E_DIR(); } }while(0)
     #else
@@ -762,7 +764,7 @@ void Stepper::isr() {
       #define STOP_E_PULSE(INDEX) do{ if (e_steps) { E_STEP_WRITE(INVERT_E_STEP_PIN); e_steps < 0 ? ++e_steps : --e_steps; } }while(0)
     #else
       #define START_E_PULSE(INDEX) do{ if (e_steps) E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN); }while(0)
-      #define STOP_E_PULSE(INDEX) do { if (e_steps) { E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); e_steps < 0 ? ++e_steps : --e_steps; } }while(0)
+      #define STOP_E_PULSE(INDEX) do { if (e_steps) { e_steps < 0 ? ++e_steps : --e_steps; E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); } }while(0)
     #endif
 
     if (use_advance_lead) {
@@ -889,9 +891,8 @@ void Stepper::isr() {
       nextMainISR = 0;
     }
 
-    // Don't run the ISR faster than possible
-    // Make sure stepper interrupt does not monopolise CPU by adjusting compare to give about 8µs room
-    HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL);
+    // Make sure stepper ISR doesn't monopolize the CPU
+    HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL * HAL_TICKS_PER_US);
 
     // Restore original ISR settings
     HAL_ENABLE_ISRs();
@@ -921,8 +922,8 @@ void Stepper::init() {
   #endif
 
   // Init TMC Steppers
-  #if ENABLED(HAVE_TMCDRIVER)
-    tmc_init();
+  #if ENABLED(HAVE_TMC26X)
+    tmc26x_init();
   #endif
 
   // Init TMC2130 Steppers
