@@ -23,7 +23,6 @@
 #ifndef SPI_PINS_LPC1768_H
 #define SPI_PINS_LPC1768_H
 
-
 #include "src/core/macros.h"
 
 #if ENABLED(SDSUPPORT) && ENABLED(DOGLCD) && (LCD_PINS_D4 == SCK_PIN || LCD_PINS_ENABLE == MOSI_PIN || DOGLCD_SCK == SCK_PIN || DOGLCD_MOSI == MOSI_PIN)
