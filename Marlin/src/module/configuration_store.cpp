@@ -37,7 +37,7 @@
  */
 
 // Change EEPROM version if the structure changes
-#define EEPROM_VERSION "V50"
+#define EEPROM_VERSION "V52"
 #define EEPROM_OFFSET 100
 
 // Check the integrity of data offsets.
@@ -45,6 +45,17 @@
 //#define DEBUG_EEPROM_READWRITE
 
 #include "configuration_store.h"
+
+#if ADD_PORT_ARG
+  #define PORTARG_SOLO     const int8_t port
+  #define PORTARG_AFTER   ,const int8_t port
+  #define PORTVAR_SOLO     port
+#else
+  #define PORTARG_SOLO
+  #define PORTARG_AFTER
+  #define PORTVAR_SOLO
+#endif
+
 #include "endstops.h"
 #include "planner.h"
 #include "stepper.h"
@@ -69,6 +80,10 @@
 
 #if ENABLED(FWRETRACT)
   #include "../feature/fwretract.h"
+#endif
+
+#if ENABLED(ADVANCED_PAUSE_FEATURE)
+  #include "../feature/pause.h"
 #endif
 
 #pragma pack(push, 1) // No padding between variables
@@ -216,13 +231,12 @@ typedef struct SettingsDataStruct {
   // HAS_TRINAMIC
   //
   uint16_t tmc_stepper_current[11];                     // M906 X Y Z X2 Y2 Z2 E0 E1 E2 E3 E4
-  int16_t tmc_sgt[2];                                   // M914 X Y
+  int16_t tmc_sgt[XYZ];                                 // M914 X Y Z
 
   //
   // LIN_ADVANCE
   //
-  float planner_extruder_advance_k,                     // M900 K    planner.extruder_advance_k
-        planner_advance_ed_ratio;                       // M900 WHD  planner.advance_ed_ratio
+  float planner_extruder_advance_K;                     // M900 K    planner.extruder_advance_K
 
   //
   // HAS_MOTOR_CURRENT_PWM
@@ -342,11 +356,7 @@ void MarlinSettings::postprocess() {
 
   bool MarlinSettings::eeprom_error, MarlinSettings::validating;
 
-  bool MarlinSettings::size_error(const uint16_t size
-    #if ADD_PORT_ARG
-      , const int8_t port/*=-1*/
-    #endif
-  ) {
+  bool MarlinSettings::size_error(const uint16_t size PORTARG_AFTER) {
     if (size != datasize()) {
       #if ENABLED(EEPROM_CHITCHAT)
         SERIAL_ERROR_START_P(port);
@@ -360,11 +370,7 @@ void MarlinSettings::postprocess() {
   /**
    * M500 - Store Configuration
    */
-  bool MarlinSettings::save(
-    #if ADD_PORT_ARG
-      const int8_t port/*=-1*/
-    #endif
-  ) {
+  bool MarlinSettings::save(PORTARG_SOLO) {
     float dummy = 0.0f;
     char ver[4] = "ERR";
 
@@ -547,9 +553,9 @@ void MarlinSettings::postprocess() {
     _FIELD_TEST(lcd_preheat_hotend_temp);
 
     #if DISABLED(ULTIPANEL)
-      constexpr int lcd_preheat_hotend_temp[2] = { PREHEAT_1_TEMP_HOTEND, PREHEAT_2_TEMP_HOTEND },
-                    lcd_preheat_bed_temp[2] = { PREHEAT_1_TEMP_BED, PREHEAT_2_TEMP_BED },
-                    lcd_preheat_fan_speed[2] = { PREHEAT_1_FAN_SPEED, PREHEAT_2_FAN_SPEED };
+      constexpr int16_t lcd_preheat_hotend_temp[2] = { PREHEAT_1_TEMP_HOTEND, PREHEAT_2_TEMP_HOTEND },
+                        lcd_preheat_bed_temp[2] = { PREHEAT_1_TEMP_BED, PREHEAT_2_TEMP_BED },
+                        lcd_preheat_fan_speed[2] = { PREHEAT_1_FAN_SPEED, PREHEAT_2_FAN_SPEED };
     #endif
 
     EEPROM_WRITE(lcd_preheat_hotend_temp);
@@ -718,47 +724,49 @@ void MarlinSettings::postprocess() {
     //
     // TMC2130 Sensorless homing threshold
     //
-    int16_t thrs;
-    #if ENABLED(SENSORLESS_HOMING)
-      #if ENABLED(X_IS_TMC2130)
-        thrs = stepperX.sgt();
+    int16_t thrs[XYZ] = {
+      #if ENABLED(SENSORLESS_HOMING)
+        #if ENABLED(X_IS_TMC2130) && defined(X_HOMING_SENSITIVITY)
+          stepperX.sgt(),
+        #else
+          0,
+        #endif
+        #if ENABLED(Y_IS_TMC2130) && defined(Y_HOMING_SENSITIVITY)
+          stepperY.sgt(),
+        #else
+          0
+        #endif
+        #if ENABLED(Z_IS_TMC2130) && defined(Z_HOMING_SENSITIVITY)
+          stepperZ.sgt()
+        #else
+          0
+        #endif
       #else
-        thrs = 0;
+        0
       #endif
-      EEPROM_WRITE(thrs);
-      #if ENABLED(Y_IS_TMC2130)
-        thrs = stepperY.sgt();
-      #else
-        thrs = 0;
-      #endif
-      EEPROM_WRITE(thrs);
-    #else
-      thrs = 0;
-      for (uint8_t q = 2; q--;) EEPROM_WRITE(thrs);
-    #endif
+    };
+    EEPROM_WRITE(thrs);
 
     //
     // Linear Advance
     //
 
-    _FIELD_TEST(planner_extruder_advance_k);
+    _FIELD_TEST(planner_extruder_advance_K);
 
     #if ENABLED(LIN_ADVANCE)
-      EEPROM_WRITE(planner.extruder_advance_k);
-      EEPROM_WRITE(planner.advance_ed_ratio);
+      EEPROM_WRITE(planner.extruder_advance_K);
     #else
       dummy = 0.0f;
-      EEPROM_WRITE(dummy);
       EEPROM_WRITE(dummy);
     #endif
 
     _FIELD_TEST(motor_current_setting);
 
     #if HAS_MOTOR_CURRENT_PWM
-      for (uint8_t q = 3; q--;) EEPROM_WRITE(stepper.motor_current_setting[q]);
+      for (uint8_t q = XYZ; q--;) EEPROM_WRITE(stepper.motor_current_setting[q]);
     #else
-      const uint32_t dummyui32 = 0;
-      for (uint8_t q = 3; q--;) EEPROM_WRITE(dummyui32);
+      const uint32_t dummyui32[XYZ] = { 0 };
+      EEPROM_WRITE(dummyui32);
     #endif
 
     //
@@ -786,7 +794,7 @@ void MarlinSettings::postprocess() {
       EEPROM_WRITE(planner.yz_skew_factor);
     #else
       dummy = 0.0f;
-      for (uint8_t q = 3; q--;) EEPROM_WRITE(dummy);
+      for (uint8_t q = XYZ; q--;) EEPROM_WRITE(dummy);
     #endif
 
     //
@@ -848,11 +856,7 @@ void MarlinSettings::postprocess() {
   /**
    * M501 - Retrieve Configuration
    */
-  bool MarlinSettings::_load(
-    #if ADD_PORT_ARG
-      const int8_t port/*=-1*/
-    #endif
-  ) {
+  bool MarlinSettings::_load(PORTARG_SOLO) {
     uint16_t working_crc = 0;
 
     EEPROM_START();
@@ -880,7 +884,7 @@ void MarlinSettings::postprocess() {
     }
     else {
       float dummy = 0;
-      #if DISABLED(AUTO_BED_LEVELING_UBL) || DISABLED(FWRETRACT)
+      #if DISABLED(AUTO_BED_LEVELING_UBL) || DISABLED(FWRETRACT) || ENABLED(NO_VOLUMETRICS)
         bool dummyb;
       #endif
 
@@ -1076,7 +1080,7 @@ void MarlinSettings::postprocess() {
       _FIELD_TEST(lcd_preheat_hotend_temp);
 
       #if DISABLED(ULTIPANEL)
-        int lcd_preheat_hotend_temp[2], lcd_preheat_bed_temp[2], lcd_preheat_fan_speed[2];
+        int16_t lcd_preheat_hotend_temp[2], lcd_preheat_bed_temp[2], lcd_preheat_fan_speed[2];
       #endif
       EEPROM_READ(lcd_preheat_hotend_temp); // 2 floats
       EEPROM_READ(lcd_preheat_bed_temp);    // 2 floats
@@ -1247,42 +1251,48 @@ void MarlinSettings::postprocess() {
        * TMC2130 Sensorless homing threshold.
        * X and X2 use the same value
        * Y and Y2 use the same value
+       * Z and Z2 use the same value
        */
-      int16_t thrs;
+      int16_t thrs[XYZ];
+      EEPROM_READ(thrs);
       #if ENABLED(SENSORLESS_HOMING)
-        EEPROM_READ(thrs);
         if (!validating) {
-          #if ENABLED(X_IS_TMC2130)
-            stepperX.sgt(thrs);
+          #ifdef X_HOMING_SENSITIVITY
+            #if ENABLED(X_IS_TMC2130)
+              stepperX.sgt(thrs[0]);
+            #endif
+            #if ENABLED(X2_IS_TMC2130)
+              stepperX2.sgt(thrs[0]);
+            #endif
           #endif
-          #if ENABLED(X2_IS_TMC2130)
-            stepperX2.sgt(thrs);
+          #ifdef Y_HOMING_SENSITIVITY
+            #if ENABLED(Y_IS_TMC2130)
+              stepperY.sgt(thrs[1]);
+            #endif
+            #if ENABLED(Y2_IS_TMC2130)
+              stepperY2.sgt(thrs[1]);
+            #endif
+          #endif
+          #ifdef Z_HOMING_SENSITIVITY
+            #if ENABLED(Z_IS_TMC2130)
+              stepperZ.sgt(thrs[2]);
+            #endif
+            #if ENABLED(Z2_IS_TMC2130)
+              stepperZ2.sgt(thrs[2]);
+            #endif
           #endif
         }
-        EEPROM_READ(thrs);
-        if (!validating) {
-          #if ENABLED(Y_IS_TMC2130)
-            stepperY.sgt(thrs);
-          #endif
-          #if ENABLED(Y2_IS_TMC2130)
-            stepperY2.sgt(thrs);
-          #endif
-        }
-      #else
-        for (uint8_t q = 0; q < 2; q++) EEPROM_READ(thrs);
       #endif
 
       //
       // Linear Advance
       //
 
-      _FIELD_TEST(planner_extruder_advance_k);
+      _FIELD_TEST(planner_extruder_advance_K);
 
       #if ENABLED(LIN_ADVANCE)
-        EEPROM_READ(planner.extruder_advance_k);
-        EEPROM_READ(planner.advance_ed_ratio);
+        EEPROM_READ(planner.extruder_advance_K);
       #else
-        EEPROM_READ(dummy);
         EEPROM_READ(dummy);
       #endif
 
@@ -1293,10 +1303,10 @@ void MarlinSettings::postprocess() {
       _FIELD_TEST(motor_current_setting);
 
       #if HAS_MOTOR_CURRENT_PWM
-        for (uint8_t q = 3; q--;) EEPROM_READ(stepper.motor_current_setting[q]);
+        for (uint8_t q = XYZ; q--;) EEPROM_READ(stepper.motor_current_setting[q]);
       #else
-        uint32_t dummyui32;
-        for (uint8_t q = 3; q--;) EEPROM_READ(dummyui32);
+        uint32_t dummyui32[XYZ];
+        EEPROM_READ(dummyui32);
       #endif
 
       //
@@ -1328,7 +1338,7 @@ void MarlinSettings::postprocess() {
           EEPROM_READ(dummy);
         #endif
       #else
-        for (uint8_t q = 3; q--;) EEPROM_READ(dummy);
+        for (uint8_t q = XYZ; q--;) EEPROM_READ(dummy);
       #endif
 
       //
@@ -1420,42 +1430,22 @@ void MarlinSettings::postprocess() {
     }
 
     #if ENABLED(EEPROM_CHITCHAT) && DISABLED(DISABLE_M503)
-      if (!validating) report(
-        #if NUM_SERIAL > 1
-          port
-        #endif
-      );
+      if (!validating) report(PORTVAR_SOLO);
     #endif
     EEPROM_FINISH();
 
     return !eeprom_error;
   }
 
-  bool MarlinSettings::validate(
-    #if NUM_SERIAL > 1
-      const int8_t port/*=-1*/
-    #endif
-  ) {
+  bool MarlinSettings::validate(PORTARG_SOLO) {
     validating = true;
-    const bool success = _load(
-      #if NUM_SERIAL > 1
-        port
-      #endif
-    );
+    const bool success = _load(PORTVAR_SOLO);
     validating = false;
     return success;
   }
 
-  bool MarlinSettings::load(
-    #if ADD_PORT_ARG
-      const int8_t port/*=-1*/
-    #endif
-  ) {
-    if (validate()) return _load(
-      #if ADD_PORT_ARG
-        port
-      #endif
-    );
+  bool MarlinSettings::load(PORTARG_SOLO) {
+    if (validate(PORTVAR_SOLO)) return _load(PORTVAR_SOLO);
     reset();
     return true;
   }
@@ -1479,6 +1469,10 @@ void MarlinSettings::postprocess() {
       return (meshes_end - meshes_start_index()) / sizeof(ubl.z_values);
     }
 
+    int MarlinSettings::mesh_slot_offset(const int8_t slot) {
+      return meshes_end - (slot + 1) * sizeof(ubl.z_values);
+    }
+
     void MarlinSettings::store_mesh(const int8_t slot) {
 
       #if ENABLED(AUTO_BED_LEVELING_UBL)
@@ -1494,15 +1488,15 @@ void MarlinSettings::postprocess() {
           return;
         }
 
+        int pos = mesh_slot_offset(slot);
         uint16_t crc = 0;
-        int pos = meshes_end - (slot + 1) * sizeof(ubl.z_values);
 
         HAL::PersistentStore::access_start();
         const bool status = HAL::PersistentStore::write_data(pos, (uint8_t *)&ubl.z_values, sizeof(ubl.z_values), &crc);
         HAL::PersistentStore::access_finish();
 
         if (status)
-          SERIAL_PROTOCOL("?Unable to save mesh data.\n");
+          SERIAL_PROTOCOLPGM("?Unable to save mesh data.\n");
 
         // Write crc to MAT along with other data, or just tack on to the beginning or end
 
@@ -1531,8 +1525,8 @@ void MarlinSettings::postprocess() {
           return;
         }
 
+        int pos = mesh_slot_offset(slot);
         uint16_t crc = 0;
-        int pos = meshes_end - (slot + 1) * sizeof(ubl.z_values);
         uint8_t * const dest = into ? (uint8_t*)into : (uint8_t*)&ubl.z_values;
 
         HAL::PersistentStore::access_start();
@@ -1540,7 +1534,7 @@ void MarlinSettings::postprocess() {
         HAL::PersistentStore::access_finish();
 
         if (status)
-          SERIAL_PROTOCOL("?Unable to load mesh data.\n");
+          SERIAL_PROTOCOLPGM("?Unable to load mesh data.\n");
 
         #if ENABLED(EEPROM_CHITCHAT)
           else
@@ -1562,11 +1556,7 @@ void MarlinSettings::postprocess() {
 
 #else // !EEPROM_SETTINGS
 
-  bool MarlinSettings::save(
-    #if ADD_PORT_ARG
-      const int8_t port/*=-1*/
-    #endif
-  ) {
+  bool MarlinSettings::save(PORTARG_SOLO) {
     #if ENABLED(EEPROM_CHITCHAT)
       SERIAL_ERROR_START_P(port);
       SERIAL_ERRORLNPGM_P(port, "EEPROM disabled");
@@ -1579,11 +1569,7 @@ void MarlinSettings::postprocess() {
 /**
  * M502 - Reset Configuration
  */
-void MarlinSettings::reset(
-  #if ADD_PORT_ARG
-    const int8_t port/*=-1*/
-  #endif
-) {
+void MarlinSettings::reset(PORTARG_SOLO) {
   static const float tmp1[] PROGMEM = DEFAULT_AXIS_STEPS_PER_UNIT, tmp2[] PROGMEM = DEFAULT_MAX_FEEDRATE;
   static const uint32_t tmp3[] PROGMEM = DEFAULT_MAX_ACCELERATION;
   LOOP_XYZE_N(i) {
@@ -1780,28 +1766,39 @@ void MarlinSettings::reset(
   #endif
 
   #if ENABLED(SENSORLESS_HOMING)
-    #if ENABLED(X_IS_TMC2130)
-      stepperX.sgt(X_HOMING_SENSITIVITY);
+    #ifdef X_HOMING_SENSITIVITY
+      #if ENABLED(X_IS_TMC2130)
+        stepperX.sgt(X_HOMING_SENSITIVITY);
+      #endif
+      #if ENABLED(X2_IS_TMC2130)
+        stepperX2.sgt(X_HOMING_SENSITIVITY);
+      #endif
     #endif
-    #if ENABLED(X2_IS_TMC2130)
-      stepperX2.sgt(X_HOMING_SENSITIVITY);
+    #ifdef Y_HOMING_SENSITIVITY
+      #if ENABLED(Y_IS_TMC2130)
+        stepperY.sgt(Y_HOMING_SENSITIVITY);
+      #endif
+      #if ENABLED(Y2_IS_TMC2130)
+        stepperY2.sgt(Y_HOMING_SENSITIVITY);
+      #endif
     #endif
-    #if ENABLED(Y_IS_TMC2130)
-      stepperY.sgt(Y_HOMING_SENSITIVITY);
-    #endif
-    #if ENABLED(Y2_IS_TMC2130)
-      stepperY2.sgt(Y_HOMING_SENSITIVITY);
+    #ifdef Z_HOMING_SENSITIVITY
+      #if ENABLED(Z_IS_TMC2130)
+        stepperZ.sgt(Z_HOMING_SENSITIVITY);
+      #endif
+      #if ENABLED(Z2_IS_TMC2130)
+        stepperZ2.sgt(Z_HOMING_SENSITIVITY);
+      #endif
     #endif
   #endif
 
   #if ENABLED(LIN_ADVANCE)
-    planner.extruder_advance_k = LIN_ADVANCE_K;
-    planner.advance_ed_ratio = LIN_ADVANCE_E_D_RATIO;
+    planner.extruder_advance_K = LIN_ADVANCE_K;
   #endif
 
   #if HAS_MOTOR_CURRENT_PWM
-    uint32_t tmp_motor_current_setting[3] = PWM_MOTOR_CURRENT;
-    for (uint8_t q = 3; q--;)
+    uint32_t tmp_motor_current_setting[XYZ] = PWM_MOTOR_CURRENT;
+    for (uint8_t q = XYZ; q--;)
       stepper.digipot_current(q, (stepper.motor_current_setting[q] = tmp_motor_current_setting[q]));
   #endif
 
@@ -2072,14 +2069,16 @@ void MarlinSettings::reset(
 
       #if ENABLED(MESH_BED_LEVELING)
 
-        for (uint8_t py = 0; py < GRID_MAX_POINTS_Y; py++) {
-          for (uint8_t px = 0; px < GRID_MAX_POINTS_X; px++) {
-            CONFIG_ECHO_START;
-            SERIAL_ECHOPAIR_P(port, "  G29 S3 X", (int)px + 1);
-            SERIAL_ECHOPAIR_P(port, " Y", (int)py + 1);
-            SERIAL_ECHOPGM_P(port, " Z");
-            SERIAL_PROTOCOL_F_P(port, LINEAR_UNIT(mbl.z_values[px][py]), 5);
-            SERIAL_EOL_P(port);
+        if (leveling_is_valid()) {
+          for (uint8_t py = 0; py < GRID_MAX_POINTS_Y; py++) {
+            for (uint8_t px = 0; px < GRID_MAX_POINTS_X; px++) {
+              CONFIG_ECHO_START;
+              SERIAL_ECHOPAIR_P(port, "  G29 S3 X", (int)px + 1);
+              SERIAL_ECHOPAIR_P(port, " Y", (int)py + 1);
+              SERIAL_ECHOPGM_P(port, " Z");
+              SERIAL_PROTOCOL_F_P(port, LINEAR_UNIT(mbl.z_values[px][py]), 5);
+              SERIAL_EOL_P(port);
+            }
           }
         }
 
@@ -2091,6 +2090,23 @@ void MarlinSettings::reset(
           SERIAL_ECHOLNPAIR_P(port, "\nActive Mesh Slot: ", ubl.storage_slot);
           SERIAL_ECHOPAIR_P(port, "EEPROM can hold ", calc_num_meshes());
           SERIAL_ECHOLNPGM_P(port, " meshes.\n");
+        }
+
+        ubl.report_current_mesh(PORTVAR_SOLO);
+
+      #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
+
+        if (leveling_is_valid()) {
+          for (uint8_t py = 0; py < GRID_MAX_POINTS_Y; py++) {
+            for (uint8_t px = 0; px < GRID_MAX_POINTS_X; px++) {
+              CONFIG_ECHO_START;
+              SERIAL_ECHOPAIR_P(port, "  G29 W I", (int)px + 1);
+              SERIAL_ECHOPAIR_P(port, " J", (int)py + 1);
+              SERIAL_ECHOPGM_P(port, " Z");
+              SERIAL_PROTOCOL_F_P(port, LINEAR_UNIT(z_values[px][py]), 5);
+              SERIAL_EOL_P(port);
+            }
+          }
         }
 
       #endif
@@ -2266,12 +2282,15 @@ void MarlinSettings::reset(
       }
       CONFIG_ECHO_START;
       #if ENABLED(SKEW_CORRECTION_FOR_Z)
-        SERIAL_ECHO_P(port, "  M852 I");
+        SERIAL_ECHOPGM_P(port, "  M852 I");
         SERIAL_ECHO_F_P(port, LINEAR_UNIT(planner.xy_skew_factor), 6);
-        SERIAL_ECHOPAIR_P(port, " J", LINEAR_UNIT(planner.xz_skew_factor));
-        SERIAL_ECHOLNPAIR_P(port, " K", LINEAR_UNIT(planner.yz_skew_factor));
-      #else
-        SERIAL_ECHO_P(port, "  M852 S");
+        SERIAL_ECHOPGM_P(port, " J");
+        SERIAL_ECHO_F_P(port, LINEAR_UNIT(planner.xz_skew_factor), 6);
+        SERIAL_ECHOPGM_P(port, " K");
+        SERIAL_ECHO_F_P(port, LINEAR_UNIT(planner.yz_skew_factor), 6);
+        SERIAL_EOL_P(port);
+       #else
+        SERIAL_ECHOPGM_P(port, "  M852 S");
         SERIAL_ECHO_F_P(port, LINEAR_UNIT(planner.xy_skew_factor), 6);
         SERIAL_EOL_P(port);
       #endif
@@ -2286,7 +2305,7 @@ void MarlinSettings::reset(
         SERIAL_ECHOLNPGM_P(port, "Stepper driver current:");
       }
       CONFIG_ECHO_START;
-      SERIAL_ECHO_P(port, "  M906");
+      SERIAL_ECHOPGM_P(port, "  M906");
       #if ENABLED(X_IS_TMC2130) || ENABLED(X_IS_TMC2208)
         SERIAL_ECHOPAIR_P(port, " X ", stepperX.getCurrent());
       #endif
@@ -2332,18 +2351,30 @@ void MarlinSettings::reset(
         SERIAL_ECHOLNPGM_P(port, "Sensorless homing threshold:");
       }
       CONFIG_ECHO_START;
-      SERIAL_ECHO_P(port, "  M914");
-      #if ENABLED(X_IS_TMC2130)
-        SERIAL_ECHOPAIR_P(port, " X", stepperX.sgt());
+      SERIAL_ECHOPGM_P(port, "  M914");
+      #ifdef X_HOMING_SENSITIVITY
+        #if ENABLED(X_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " X", stepperX.sgt());
+        #endif
+        #if ENABLED(X2_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " X2 ", stepperX2.sgt());
+        #endif
       #endif
-      #if ENABLED(X2_IS_TMC2130)
-        SERIAL_ECHOPAIR_P(port, " X2 ", stepperX2.sgt());
+      #ifdef Y_HOMING_SENSITIVITY
+        #if ENABLED(Y_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " Y", stepperY.sgt());
+        #endif
+        #if ENABLED(Y2_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " Y2 ", stepperY2.sgt());
+        #endif
       #endif
-      #if ENABLED(Y_IS_TMC2130)
-        SERIAL_ECHOPAIR_P(port, " Y", stepperY.sgt());
-      #endif
-      #if ENABLED(X2_IS_TMC2130)
-        SERIAL_ECHOPAIR_P(port, " Y2 ", stepperY2.sgt());
+      #ifdef Z_HOMING_SENSITIVITY
+        #if ENABLED(Z_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " Z ", stepperZ.sgt());
+        #endif
+        #if ENABLED(Z2_IS_TMC2130)
+          SERIAL_ECHOPAIR_P(port, " Z2 ", stepperZ2.sgt());
+        #endif
       #endif
       SERIAL_EOL_P(port);
     #endif
@@ -2357,8 +2388,7 @@ void MarlinSettings::reset(
         SERIAL_ECHOLNPGM_P(port, "Linear Advance:");
       }
       CONFIG_ECHO_START;
-      SERIAL_ECHOPAIR_P(port, "  M900 K", planner.extruder_advance_k);
-      SERIAL_ECHOLNPAIR_P(port, " R", planner.advance_ed_ratio);
+      SERIAL_ECHOLNPAIR_P(port, "  M900 K", planner.extruder_advance_K);
     #endif
 
     #if HAS_MOTOR_CURRENT_PWM

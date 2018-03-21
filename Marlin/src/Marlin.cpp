@@ -25,7 +25,7 @@
  *
  * This firmware is a mashup between Sprinter and grbl.
  *  - https://github.com/kliment/Sprinter
- *  - https://github.com/simen/grbl
+ *  - https://github.com/grbl/grbl
  */
 
 #include "Marlin.h"
@@ -187,6 +187,10 @@ volatile bool wait_for_heatup = true;
   volatile bool wait_for_user = false;
 #endif
 
+#if HAS_AUTO_REPORTING
+  bool suspend_auto_report; // = false
+#endif
+
 // Inactivity shutdown
 millis_t max_inactive_time = 0,
          stepper_inactive_time = (DEFAULT_STEPPER_DEACTIVE_TIME) * 1000UL;
@@ -202,8 +206,6 @@ millis_t max_inactive_time = 0,
 
 #if ENABLED(I2C_POSITION_ENCODERS)
   I2CPositionEncodersMgr I2CPEM;
-  uint8_t blockBufferIndexRef = 0;
-  millis_t lastUpdateMillis;
 #endif
 
 /**
@@ -218,27 +220,15 @@ void setup_killpin() {
   #endif
 }
 
-#if ENABLED(FILAMENT_RUNOUT_SENSOR)
-
-  void setup_filrunoutpin() {
-    #if ENABLED(ENDSTOPPULLUP_FIL_RUNOUT)
-      SET_INPUT_PULLUP(FIL_RUNOUT_PIN);
-    #else
-      SET_INPUT(FIL_RUNOUT_PIN);
-    #endif
-  }
-
-#endif
-
 void setup_powerhold() {
   #if HAS_SUICIDE
     OUT_WRITE(SUICIDE_PIN, HIGH);
   #endif
   #if HAS_POWER_SWITCH
     #if ENABLED(PS_DEFAULT_OFF)
-      OUT_WRITE(PS_ON_PIN, PS_ON_ASLEEP);
+      PSU_OFF();
     #else
-      OUT_WRITE(PS_ON_PIN, PS_ON_AWAKE);
+      PSU_ON();
     #endif
   #endif
 }
@@ -286,6 +276,9 @@ void quickstop_stepper() {
 }
 
 void enable_all_steppers() {
+  #if ENABLED(AUTO_POWER_CONTROL)
+    powerManager.power_on();
+  #endif
   enable_X();
   enable_Y();
   enable_Z();
@@ -336,8 +329,7 @@ void disable_all_steppers() {
 void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-    if ((IS_SD_PRINTING || print_job_timer.isRunning()) && (READ(FIL_RUNOUT_PIN) == FIL_RUNOUT_INVERTING))
-      handle_filament_runout();
+    runout.run();
   #endif
 
   if (commands_in_queue < BUFSIZE) get_available_commands();
@@ -372,7 +364,7 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
       disable_e_steppers();
     #endif
     #if ENABLED(AUTO_BED_LEVELING_UBL) && ENABLED(ULTIPANEL)  // Only needed with an LCD
-      ubl.lcd_map_control = defer_return_to_status = false;
+      if (ubl.lcd_map_control) ubl.lcd_map_control = defer_return_to_status = false;
     #endif
   }
 
@@ -426,9 +418,15 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
     controllerfan_update(); // Check if fan should be turned on to cool stepper drivers down
   #endif
 
+  #if ENABLED(AUTO_POWER_CONTROL)
+    powerManager.check();
+  #endif
+
   #if ENABLED(EXTRUDER_RUNOUT_PREVENT)
-    if (ELAPSED(ms, gcode.previous_cmd_ms + (EXTRUDER_RUNOUT_SECONDS) * 1000UL)
-      && thermalManager.degHotend(active_extruder) > EXTRUDER_RUNOUT_MINTEMP) {
+    if (thermalManager.degHotend(active_extruder) > EXTRUDER_RUNOUT_MINTEMP
+      && ELAPSED(ms, gcode.previous_cmd_ms + (EXTRUDER_RUNOUT_SECONDS) * 1000UL)
+      && !planner.blocks_queued()
+    ) {
       #if ENABLED(SWITCHING_EXTRUDER)
         const bool oldstatus = E0_ENABLE_READ;
         enable_E0();
@@ -525,10 +523,6 @@ void idle(
     gcode.host_keepalive();
   #endif
 
-  #if ENABLED(AUTO_REPORT_TEMPERATURES) && (HAS_TEMP_HOTEND || HAS_TEMP_BED)
-    thermalManager.auto_report_temperatures();
-  #endif
-
   manage_inactivity(
     #if ENABLED(ADVANCED_PAUSE_FEATURE)
       no_stepper_sleep
@@ -546,17 +540,26 @@ void idle(
   #endif
 
   #if ENABLED(I2C_POSITION_ENCODERS)
-    if (planner.blocks_queued() &&
-        ( (blockBufferIndexRef != planner.block_buffer_head) ||
-          ((lastUpdateMillis + I2CPE_MIN_UPD_TIME_MS) < millis())) ) {
-      blockBufferIndexRef = planner.block_buffer_head;
+    static millis_t i2cpem_next_update_ms;
+    if (planner.blocks_queued() && ELAPSED(millis(), i2cpem_next_update_ms)) {
       I2CPEM.update();
-      lastUpdateMillis = millis();
+      i2cpem_next_update_ms = millis() + I2CPE_MIN_UPD_TIME_MS;
     }
   #endif
 
   #ifdef HAL_IDLETASK
     HAL_idletask();
+  #endif
+
+  #if HAS_AUTO_REPORTING
+    if (!suspend_auto_report) {
+      #if ENABLED(AUTO_REPORT_TEMPERATURES)
+        thermalManager.auto_report_temperatures();
+      #endif
+      #if ENABLED(AUTO_REPORT_SD_STATUS)
+        card.auto_report_sd_status();
+      #endif
+    }
   #endif
 }
 
@@ -588,7 +591,7 @@ void kill(const char* lcd_msg) {
   #endif
 
   #if HAS_POWER_SWITCH
-    SET_INPUT(PS_ON_PIN);
+    PSU_OFF();
   #endif
 
   #if HAS_SUICIDE
@@ -645,6 +648,9 @@ void setup() {
 
   #ifdef HAL_INIT
     HAL_init();
+    #if defined(ARDUINO_ARCH_SAM) && PIN_EXISTS(BEEPER) && ENABLED(SPEAKER)
+      toneInit();
+    #endif
   #endif
 
   #if ENABLED(MAX7219_DEBUG)
@@ -658,7 +664,7 @@ void setup() {
   #endif
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-    setup_filrunoutpin();
+    runout.setup();
   #endif
 
   setup_killpin();
@@ -688,6 +694,13 @@ void setup() {
   SERIAL_PROTOCOLLNPGM("start");
   SERIAL_ECHO_START();
 
+  #if ENABLED(HAVE_TMC2130)
+    tmc_init_cs_pins();
+  #endif
+  #if ENABLED(HAVE_TMC2208)
+    tmc2208_serial_begin();
+  #endif
+
   // Check startup - does nothing if bootloader sets MCUSR to 0
   byte mcu = HAL_get_reset_source();
   if (mcu &  1) SERIAL_ECHOLNPGM(MSG_POWERUP);
@@ -696,10 +709,6 @@ void setup() {
   if (mcu &  8) SERIAL_ECHOLNPGM(MSG_WATCHDOG_RESET);
   if (mcu & 32) SERIAL_ECHOLNPGM(MSG_SOFTWARE_RESET);
   HAL_clear_reset_source();
-
-  #if ENABLED(USE_WATCHDOG) //reinit watchdog after HAL_get_reset_source call
-    watchdog_init();
-  #endif
 
   SERIAL_ECHOPGM(MSG_MARLIN);
   SERIAL_CHAR(' ');
@@ -736,6 +745,8 @@ void setup() {
   SYNC_PLAN_POSITION_KINEMATIC();
 
   thermalManager.init();    // Initialize temperature loop
+
+  print_job_timer.init();   // Initial setup of print job timer
 
   stepper.init();    // Initialize stepper, this enables interrupts!
 
@@ -826,6 +837,7 @@ void setup() {
   #endif
 
   lcd_init();
+  LCD_MESSAGEPGM(WELCOME_MSG);
 
   #if ENABLED(SHOW_BOOTSCREEN)
     lcd_bootscreen();
@@ -862,6 +874,10 @@ void setup() {
 
   #if ENABLED(PARKING_EXTRUDER)
     pe_magnet_init();
+  #endif
+
+  #if ENABLED(USE_WATCHDOG) // Reinit watchdog after HAL_get_reset_source call
+    watchdog_init();
   #endif
 }
 

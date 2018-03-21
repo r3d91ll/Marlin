@@ -30,6 +30,7 @@
 #include "../lcd/ultralcd.h"
 #include "../sd/cardreader.h"
 #include "../module/planner.h"
+#include "../module/temperature.h"
 #include "../Marlin.h"
 
 #if HAS_COLOR_LEDS
@@ -90,8 +91,7 @@ void queue_setup() {
  * Clear the Marlin command queue
  */
 void clear_command_queue() {
-  cmd_queue_index_r = cmd_queue_index_w;
-  commands_in_queue = 0;
+  cmd_queue_index_r = cmd_queue_index_w = commands_in_queue = 0;
 }
 
 /**
@@ -233,6 +233,7 @@ void flush_and_request_resend() {
   SERIAL_FLUSH_P(port);
   SERIAL_PROTOCOLPGM_P(port, MSG_RESEND);
   SERIAL_PROTOCOLLN_P(port, gcode_LastN + 1);
+  ok_to_send();
 }
 
 void gcode_line_error(const char* err, uint8_t port) {
@@ -254,7 +255,7 @@ static bool serial_data_available() {
 static int read_serial(const int index) {
   switch (index) {
     case 0: return MYSERIAL0.read();
-    #if NUM_SERIAL > 1 
+    #if NUM_SERIAL > 1
       case 1: return MYSERIAL1.read();
     #endif
     default: return -1;
@@ -272,7 +273,7 @@ inline void get_serial_commands() {
 
   // If the command buffer is empty for too long,
   // send "wait" to indicate Marlin is still waiting.
-  #if defined(NO_TIMEOUTS) && NO_TIMEOUTS > 0
+  #if NO_TIMEOUTS > 0
     static millis_t last_command_time = 0;
     const millis_t ms = millis();
     if (commands_in_queue == 0 && !serial_data_available() && ELAPSED(ms, last_command_time + NO_TIMEOUTS)) {
@@ -298,7 +299,8 @@ inline void get_serial_commands() {
 
         serial_comment_mode[i] = false;                   // end of line == end of comment
 
-        if (!serial_count[i]) continue;                   // Skip empty lines
+        // Skip empty lines and comments
+        if (!serial_count[i]) { thermalManager.manage_heater(); continue; }
 
         serial_line_buffer[i][serial_count[i]] = 0;       // Terminate string
         serial_count[i] = 0;                              // Reset buffer
@@ -359,7 +361,7 @@ inline void get_serial_commands() {
         }
 
         #if DISABLED(EMERGENCY_PARSER)
-          // If command was e-stop process now
+          // Process critical commands early
           if (strcmp(command, "M108") == 0) {
             wait_for_heatup = false;
             #if ENABLED(ULTIPANEL)
@@ -367,7 +369,7 @@ inline void get_serial_commands() {
             #endif
           }
           if (strcmp(command, "M112") == 0) kill(PSTR(MSG_KILLED));
-          if (strcmp(command, "M410") == 0) { quickstop_stepper(); }
+          if (strcmp(command, "M410") == 0) quickstop_stepper();
         #endif
 
         #if defined(NO_TIMEOUTS) && NO_TIMEOUTS > 0
@@ -388,7 +390,7 @@ inline void get_serial_commands() {
       else if (serial_char == '\\') {  // Handle escapes
         // if we have one more character, copy it over
         if ((c = read_serial(i)) >= 0 && !serial_comment_mode[i])
-          serial_line_buffer[i][serial_count[i]++] = serial_char;
+          serial_line_buffer[i][serial_count[i]++] = (char)c;
       }
       else { // it's not a newline, carriage return or escape char
         if (serial_char == ';') serial_comment_mode[i] = true;
@@ -459,7 +461,8 @@ inline void get_serial_commands() {
 
         sd_comment_mode = false; // for new command
 
-        if (!sd_count) continue; // skip empty lines (and comment lines)
+        // Skip empty lines and comments
+        if (!sd_count) { thermalManager.manage_heater(); continue; }
 
         command_queue[cmd_queue_index_w][sd_count] = '\0'; // terminate string
         sd_count = 0; // clear sd line buffer
@@ -515,7 +518,7 @@ void advance_command_queue() {
         card.closefile();
         SERIAL_PROTOCOLLNPGM(MSG_FILE_SAVED);
 
-        #ifndef USBCON
+        #if !defined(__AVR__) || !defined(USBCON)
           #if ENABLED(SERIAL_STATS_DROPPED_RX)
             SERIAL_ECHOLNPAIR("Dropped bytes: ", customizedSerial.dropped());
           #endif
@@ -523,7 +526,7 @@ void advance_command_queue() {
           #if ENABLED(SERIAL_STATS_MAX_RX_QUEUED)
             SERIAL_ECHOLNPAIR("Max RX Queue Size: ", customizedSerial.rxMaxEnqueued());
           #endif
-        #endif // !USBCON
+        #endif //  !defined(__AVR__) || !defined(USBCON)
 
         ok_to_send();
       }

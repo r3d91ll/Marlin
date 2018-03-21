@@ -37,6 +37,10 @@
 #include "../lcd/ultralcd.h"
 #include "../Marlin.h"
 
+#if ENABLED(SENSORLESS_HOMING)
+  #include "../feature/tmc_util.h"
+#endif
+
 // Initialized by settings.load()
 float delta_height,
       delta_endstop_adj[ABC] = { 0 },
@@ -111,18 +115,29 @@ void recalc_delta_settings() {
   }
 #endif
 
-#define DELTA_DEBUG() do { \
-    SERIAL_ECHOPAIR("cartesian X:", raw[X_AXIS]); \
-    SERIAL_ECHOPAIR(" Y:", raw[Y_AXIS]);          \
-    SERIAL_ECHOLNPAIR(" Z:", raw[Z_AXIS]);        \
+#define DELTA_DEBUG(VAR) do { \
+    SERIAL_ECHOPAIR("cartesian X:", VAR[X_AXIS]); \
+    SERIAL_ECHOPAIR(" Y:", VAR[Y_AXIS]);          \
+    SERIAL_ECHOLNPAIR(" Z:", VAR[Z_AXIS]);        \
     SERIAL_ECHOPAIR("delta A:", delta[A_AXIS]);   \
     SERIAL_ECHOPAIR(" B:", delta[B_AXIS]);        \
     SERIAL_ECHOLNPAIR(" C:", delta[C_AXIS]);      \
   }while(0)
 
 void inverse_kinematics(const float raw[XYZ]) {
-  DELTA_IK(raw);
-  // DELTA_DEBUG();
+  #if HOTENDS > 1
+    // Delta hotend offsets must be applied in Cartesian space with no "spoofing"
+    const float pos[XYZ] = {
+      raw[X_AXIS] - hotend_offset[X_AXIS][active_extruder],
+      raw[Y_AXIS] - hotend_offset[Y_AXIS][active_extruder],
+      raw[Z_AXIS]
+    };
+    DELTA_IK(pos);
+    //DELTA_DEBUG(pos);
+  #else
+    DELTA_IK(raw);
+    //DELTA_DEBUG(raw);
+  #endif
 }
 
 /**
@@ -132,10 +147,10 @@ void inverse_kinematics(const float raw[XYZ]) {
 float delta_safe_distance_from_top() {
   float cartesian[XYZ] = { 0, 0, 0 };
   inverse_kinematics(cartesian);
-  float distance = delta[A_AXIS];
+  float centered_extent = delta[A_AXIS];
   cartesian[Y_AXIS] = DELTA_PRINTABLE_RADIUS;
   inverse_kinematics(cartesian);
-  return FABS(distance - delta[A_AXIS]);
+  return FABS(centered_extent - delta[A_AXIS]);
 }
 
 /**
@@ -214,6 +229,14 @@ void forward_kinematics_DELTA(float z1, float z2, float z3) {
   cartes[Z_AXIS] =             z1 + ex[2] * Xnew + ey[2] * Ynew - ez[2] * Znew;
 }
 
+#if ENABLED(SENSORLESS_HOMING)
+  inline void delta_sensorless_homing(const bool on=true) {
+    sensorless_homing_per_axis(A_AXIS, on);
+    sensorless_homing_per_axis(B_AXIS, on);
+    sensorless_homing_per_axis(C_AXIS, on);
+  }
+#endif
+
 /**
  * A delta can only safely home all axes at the same time
  * This is like quick_home_xy() but for 3 towers.
@@ -225,6 +248,11 @@ bool home_delta() {
   // Init the current position of all carriages to 0,0,0
   ZERO(current_position);
   sync_plan_position();
+
+  // Disable stealthChop if used. Enable diag1 pin on driver.
+  #if ENABLED(SENSORLESS_HOMING)
+    delta_sensorless_homing();
+  #endif
 
   // Move all carriages together linearly until an endstop is hit.
   current_position[X_AXIS] = current_position[Y_AXIS] = current_position[Z_AXIS] = (delta_height + 10);
@@ -238,6 +266,9 @@ bool home_delta() {
     LCD_MESSAGEPGM(MSG_ERR_HOMING_FAILED);
     SERIAL_ERROR_START();
     SERIAL_ERRORLNPGM(MSG_ERR_HOMING_FAILED);
+    #if ENABLED(SENSORLESS_HOMING)
+      delta_sensorless_homing(false);
+    #endif
     return false;
   }
 
@@ -248,6 +279,11 @@ bool home_delta() {
   HOMEAXIS(A);
   HOMEAXIS(B);
   HOMEAXIS(C);
+
+  // Re-enable stealthChop if used. Disable diag1 pin on driver.
+  #if ENABLED(SENSORLESS_HOMING)
+    delta_sensorless_homing(false);
+  #endif
 
   // Set all carriages to their home positions
   // Do this here all at once for Delta, because

@@ -38,44 +38,48 @@
 //
 // TMC26X Driver objects and inits
 //
-#if ENABLED(HAVE_TMCDRIVER)
-
+#if ENABLED(HAVE_TMC26X)
   #include <SPI.h>
-  #include <TMC26XStepper.h>
+
+  #ifdef STM32F7
+    #include "../HAL/HAL_STM32F7/TMC2660.h"
+  #else
+    #include <TMC26XStepper.h>
+  #endif
 
   #define _TMC_DEFINE(ST) TMC26XStepper stepper##ST(200, ST##_ENABLE_PIN, ST##_STEP_PIN, ST##_DIR_PIN, ST##_MAX_CURRENT, ST##_SENSE_RESISTOR)
 
-  #if ENABLED(X_IS_TMC)
+  #if ENABLED(X_IS_TMC26X)
     _TMC_DEFINE(X);
   #endif
-  #if ENABLED(X2_IS_TMC)
+  #if ENABLED(X2_IS_TMC26X)
     _TMC_DEFINE(X2);
   #endif
-  #if ENABLED(Y_IS_TMC)
+  #if ENABLED(Y_IS_TMC26X)
     _TMC_DEFINE(Y);
   #endif
-  #if ENABLED(Y2_IS_TMC)
+  #if ENABLED(Y2_IS_TMC26X)
     _TMC_DEFINE(Y2);
   #endif
-  #if ENABLED(Z_IS_TMC)
+  #if ENABLED(Z_IS_TMC26X)
     _TMC_DEFINE(Z);
   #endif
-  #if ENABLED(Z2_IS_TMC)
+  #if ENABLED(Z2_IS_TMC26X)
     _TMC_DEFINE(Z2);
   #endif
-  #if ENABLED(E0_IS_TMC)
+  #if ENABLED(E0_IS_TMC26X)
     _TMC_DEFINE(E0);
   #endif
-  #if ENABLED(E1_IS_TMC)
+  #if ENABLED(E1_IS_TMC26X)
     _TMC_DEFINE(E1);
   #endif
-  #if ENABLED(E2_IS_TMC)
+  #if ENABLED(E2_IS_TMC26X)
     _TMC_DEFINE(E2);
   #endif
-  #if ENABLED(E3_IS_TMC)
+  #if ENABLED(E3_IS_TMC26X)
     _TMC_DEFINE(E3);
   #endif
-  #if ENABLED(E4_IS_TMC)
+  #if ENABLED(E4_IS_TMC26X)
     _TMC_DEFINE(E4);
   #endif
 
@@ -84,43 +88,43 @@
     stepper##A.start(); \
   }while(0)
 
-  void tmc_init() {
-    #if ENABLED(X_IS_TMC)
+  void tmc26x_init() {
+    #if ENABLED(X_IS_TMC26X)
       _TMC_INIT(X);
     #endif
-    #if ENABLED(X2_IS_TMC)
+    #if ENABLED(X2_IS_TMC26X)
       _TMC_INIT(X2);
     #endif
-    #if ENABLED(Y_IS_TMC)
+    #if ENABLED(Y_IS_TMC26X)
       _TMC_INIT(Y);
     #endif
-    #if ENABLED(Y2_IS_TMC)
+    #if ENABLED(Y2_IS_TMC26X)
       _TMC_INIT(Y2);
     #endif
-    #if ENABLED(Z_IS_TMC)
+    #if ENABLED(Z_IS_TMC26X)
       _TMC_INIT(Z);
     #endif
-    #if ENABLED(Z2_IS_TMC)
+    #if ENABLED(Z2_IS_TMC26X)
       _TMC_INIT(Z2);
     #endif
-    #if ENABLED(E0_IS_TMC)
+    #if ENABLED(E0_IS_TMC26X)
       _TMC_INIT(E0);
     #endif
-    #if ENABLED(E1_IS_TMC)
+    #if ENABLED(E1_IS_TMC26X)
       _TMC_INIT(E1);
     #endif
-    #if ENABLED(E2_IS_TMC)
+    #if ENABLED(E2_IS_TMC26X)
       _TMC_INIT(E2);
     #endif
-    #if ENABLED(E3_IS_TMC)
+    #if ENABLED(E3_IS_TMC26X)
       _TMC_INIT(E3);
     #endif
-    #if ENABLED(E4_IS_TMC)
+    #if ENABLED(E4_IS_TMC26X)
       _TMC_INIT(E4);
     #endif
   }
 
-#endif // HAVE_TMCDRIVER
+#endif // HAVE_TMC26X
 
 //
 // TMC2130 Driver objects and inits
@@ -132,7 +136,11 @@
   #include "planner.h"
   #include "../core/enum.h"
 
-  #define _TMC2130_DEFINE(ST) TMC2130Stepper stepper##ST(ST##_ENABLE_PIN, ST##_DIR_PIN, ST##_STEP_PIN, ST##_CS_PIN)
+  #if ENABLED(TMC_USE_SW_SPI)
+    #define _TMC2130_DEFINE(ST) TMC2130Stepper stepper##ST(ST##_ENABLE_PIN, ST##_DIR_PIN, ST##_STEP_PIN, ST##_CS_PIN, TMC_SW_MOSI, TMC_SW_MISO, TMC_SW_SCK)
+  #else
+    #define _TMC2130_DEFINE(ST) TMC2130Stepper stepper##ST(ST##_ENABLE_PIN, ST##_DIR_PIN, ST##_STEP_PIN, ST##_CS_PIN)
+  #endif
 
   // Stepper objects of TMC2130 steppers used
   #if ENABLED(X_IS_TMC2130)
@@ -180,8 +188,8 @@
     st.off_time(5); // Only enables the driver if used with stealthChop
     st.interpolate(INTERPOLATE);
     st.power_down_delay(128); // ~2s until driver lowers to hold current
-    st.hysterisis_start(3);
-    st.hysterisis_end(2);
+    st.hysteresis_start(3);
+    st.hysteresis_end(2);
     st.diag1_active_high(1); // For sensorless homing
     #if ENABLED(STEALTHCHOP)
       st.stealth_freq(1); // f_pwm = 2/683 f_clk
@@ -226,16 +234,32 @@
       _TMC2130_INIT(E0, planner.axis_steps_per_mm[E_AXIS]);
     #endif
     #if ENABLED(E1_IS_TMC2130)
-      { constexpr int extruder = 1; _TMC2130_INIT(E1, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2130_INIT(E1, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 1
+        #endif
+      ]);
     #endif
     #if ENABLED(E2_IS_TMC2130)
-      { constexpr int extruder = 2; _TMC2130_INIT(E2, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2130_INIT(E2, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 2
+        #endif
+      ]);
     #endif
     #if ENABLED(E3_IS_TMC2130)
-      { constexpr int extruder = 3; _TMC2130_INIT(E3, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2130_INIT(E3, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 3
+        #endif
+      ]);
     #endif
     #if ENABLED(E4_IS_TMC2130)
-      { constexpr int extruder = 4; _TMC2130_INIT(E4, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2130_INIT(E4, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 4
+        #endif
+      ]);
     #endif
 
   }
@@ -252,82 +276,82 @@
   #include "planner.h"
 
   #define _TMC2208_DEFINE_HARDWARE(ST) TMC2208Stepper stepper##ST(&ST##_HARDWARE_SERIAL)
-  #define _TMC2208_DEFINE_SOFTWARE(ST) SoftwareSerial stepper##ST##_serial = SoftwareSerial(ST##_SERIAL_RX_PIN, ST##_SERIAL_TX_PIN); \
-                                       TMC2208Stepper stepper##ST(&stepper##ST##_serial, ST##_SERIAL_RX_PIN > -1)
+  #define _TMC2208_DEFINE_SOFTWARE(ST) SoftwareSerial ST##_HARDWARE_SERIAL = SoftwareSerial(ST##_SERIAL_RX_PIN, ST##_SERIAL_TX_PIN); \
+                                       TMC2208Stepper stepper##ST(&ST##_HARDWARE_SERIAL, ST##_SERIAL_RX_PIN > -1)
 
   // Stepper objects of TMC2208 steppers used
   #if ENABLED(X_IS_TMC2208)
-    #if defined(X_HARDWARE_SERIAL)
+    #ifdef X_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(X);
     #else
       _TMC2208_DEFINE_SOFTWARE(X);
     #endif
   #endif
   #if ENABLED(X2_IS_TMC2208)
-    #if defined(X2_HARDWARE_SERIAL)
+    #ifdef X2_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(X2);
     #else
       _TMC2208_DEFINE_SOFTWARE(X2);
     #endif
   #endif
   #if ENABLED(Y_IS_TMC2208)
-    #if defined(Y_HARDWARE_SERIAL)
+    #ifdef Y_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(Y);
     #else
       _TMC2208_DEFINE_SOFTWARE(Y);
     #endif
   #endif
   #if ENABLED(Y2_IS_TMC2208)
-    #if defined(Y2_HARDWARE_SERIAL)
+    #ifdef Y2_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(Y2);
     #else
       _TMC2208_DEFINE_SOFTWARE(Y2);
     #endif
   #endif
   #if ENABLED(Z_IS_TMC2208)
-    #if defined(Z_HARDWARE_SERIAL)
+    #ifdef Z_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(Z);
     #else
       _TMC2208_DEFINE_SOFTWARE(Z);
     #endif
   #endif
   #if ENABLED(Z2_IS_TMC2208)
-    #if defined(Z2_HARDWARE_SERIAL)
+    #ifdef Z2_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(Z2);
     #else
       _TMC2208_DEFINE_SOFTWARE(Z2);
     #endif
   #endif
   #if ENABLED(E0_IS_TMC2208)
-    #if defined(E0_HARDWARE_SERIAL)
+    #ifdef E0_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(E0);
     #else
       _TMC2208_DEFINE_SOFTWARE(E0);
     #endif
   #endif
   #if ENABLED(E1_IS_TMC2208)
-    #if defined(E1_HARDWARE_SERIAL)
+    #ifdef E1_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(E1);
     #else
       _TMC2208_DEFINE_SOFTWARE(E1);
     #endif
   #endif
   #if ENABLED(E2_IS_TMC2208)
-    #if defined(E2_HARDWARE_SERIAL)
+    #ifdef E2_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(E2);
     #else
       _TMC2208_DEFINE_SOFTWARE(E2);
     #endif
   #endif
   #if ENABLED(E3_IS_TMC2208)
-    #if defined(E3_HARDWARE_SERIAL)
+    #ifdef E3_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(E3);
     #else
       _TMC2208_DEFINE_SOFTWARE(E3);
     #endif
   #endif
   #if ENABLED(E4_IS_TMC2208)
-    #if defined(E4_HARDWARE_SERIAL)
+    #ifdef E4_HARDWARE_SERIAL
       _TMC2208_DEFINE_HARDWARE(E4);
     #else
       _TMC2208_DEFINE_SOFTWARE(E4);
@@ -335,38 +359,38 @@
   #endif
 
   void tmc2208_serial_begin() {
-    #if ENABLED(X_IS_TMC2208) && defined(X_HARDWARE_SERIAL)
-      X_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(X_IS_TMC2208)
+      X_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(X2_IS_TMC2208) && defined(X2_HARDWARE_SERIAL)
-      X2_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(X2_IS_TMC2208)
+      X2_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(Y_IS_TMC2208) && defined(Y_HARDWARE_SERIAL)
-      Y_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(Y_IS_TMC2208)
+      Y_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(Y2_IS_TMC2208) && defined(Y2_HARDWARE_SERIAL)
-      Y2_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(Y2_IS_TMC2208)
+      Y2_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(Z_IS_TMC2208) && defined(Z_HARDWARE_SERIAL)
-      Z_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(Z_IS_TMC2208)
+      Z_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(Z2_IS_TMC2208) && defined(Z2_HARDWARE_SERIAL)
-      Z2_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(Z2_IS_TMC2208)
+      Z2_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(E0_IS_TMC2208) && defined(E0_HARDWARE_SERIAL)
-      E0_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(E0_IS_TMC2208)
+      E0_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(E1_IS_TMC2208) && defined(E1_HARDWARE_SERIAL)
-      E1_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(E1_IS_TMC2208)
+      E1_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(E2_IS_TMC2208) && defined(E2_HARDWARE_SERIAL)
-      E2_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(E2_IS_TMC2208)
+      E2_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(E3_IS_TMC2208) && defined(E3_HARDWARE_SERIAL)
-      E3_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(E3_IS_TMC2208)
+      E3_HARDWARE_SERIAL.begin(115200);
     #endif
-    #if ENABLED(E4_IS_TMC2208) && defined(E4_HARDWARE_SERIAL)
-      E4_HARDWARE_SERIAL.begin(250000);
+    #if ENABLED(E4_IS_TMC2208)
+      E4_HARDWARE_SERIAL.begin(115200);
     #endif
   }
 
@@ -382,8 +406,8 @@
     st.toff(5);
     st.intpol(INTERPOLATE);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
-    st.hysterisis_start(3);
-    st.hysterisis_end(2);
+    st.hysteresis_start(3);
+    st.hysteresis_end(2);
     #if ENABLED(STEALTHCHOP)
       st.pwm_lim(12);
       st.pwm_reg(8);
@@ -431,20 +455,35 @@
       _TMC2208_INIT(E0, planner.axis_steps_per_mm[E_AXIS]);
     #endif
     #if ENABLED(E1_IS_TMC2208)
-      { constexpr int extruder = 1; _TMC2208_INIT(E1, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2208_INIT(E1, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 1
+        #endif
+      ]);
     #endif
     #if ENABLED(E2_IS_TMC2208)
-      { constexpr int extruder = 2; _TMC2208_INIT(E2, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2208_INIT(E2, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 2
+        #endif
+      ]);
     #endif
     #if ENABLED(E3_IS_TMC2208)
-      { constexpr int extruder = 3; _TMC2208_INIT(E3, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2208_INIT(E3, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 3
+        #endif
+      ]);
     #endif
     #if ENABLED(E4_IS_TMC2208)
-      { constexpr int extruder = 4; _TMC2208_INIT(E4, planner.axis_steps_per_mm[E_AXIS_N]); }
+      _TMC2208_INIT(E4, planner.axis_steps_per_mm[E_AXIS
+        #if ENABLED(DISTINCT_E_FACTORS)
+          + 4
+        #endif
+      ]);
     #endif
   }
 #endif // HAVE_TMC2208
-
 
 //
 // L6470 Driver objects and inits

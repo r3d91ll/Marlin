@@ -179,6 +179,10 @@ extern volatile bool wait_for_heatup;
   extern volatile bool wait_for_user;
 #endif
 
+#if HAS_AUTO_REPORTING
+  extern bool suspend_auto_report;
+#endif
+
 #if ENABLED(AUTO_BED_LEVELING_UBL)
   typedef struct { double A, B, D; } linear_fit;
   linear_fit* lsf_linear_fit(double x[], double y[], double z[], const int);
@@ -199,8 +203,25 @@ extern millis_t max_inactive_time, stepper_inactive_time;
   #endif
 #endif
 
+#if ENABLED(USE_CONTROLLER_FAN)
+  extern uint8_t controllerFanSpeed;
+#endif
+
 #if ENABLED(PID_EXTRUSION_SCALING)
   extern int lpq_len;
+#endif
+
+#if HAS_POWER_SWITCH
+  extern bool powersupply_on;
+  #define PSU_PIN_ON()  do{ OUT_WRITE(PS_ON_PIN, PS_ON_AWAKE); powersupply_on = true; }while(0)
+  #define PSU_PIN_OFF() do{ OUT_WRITE(PS_ON_PIN, PS_ON_ASLEEP); powersupply_on = false; }while(0)
+  #if ENABLED(AUTO_POWER_CONTROL)
+    #define PSU_ON()  powerManager.power_on()
+    #define PSU_OFF() powerManager.power_off()
+  #else
+    #define PSU_ON()  PSU_PIN_ON()
+    #define PSU_OFF() PSU_PIN_OFF()
+  #endif
 #endif
 
 bool pin_is_protected(const pin_t pin);
