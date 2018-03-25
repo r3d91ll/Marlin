@@ -86,9 +86,14 @@
       if (!WITHIN(cell_dest_xi, 0, GRID_MAX_POINTS_X - 1) || !WITHIN(cell_dest_yi, 0, GRID_MAX_POINTS_Y - 1)) {
 
         // Note: There is no Z Correction in this case. We are off the grid and don't know what
-        // a reasonable correction would be.
-
-        planner.buffer_segment(end[X_AXIS], end[Y_AXIS], end[Z_AXIS], end[E_AXIS], feed_rate, extruder);
+        // a reasonable correction would be.  If the user has specified a UBL_Z_RAISE_WHEN_OFF_MESH
+        // value, that will be used instead of a calculated (Bi-Linear interpolation) correction.
+        const float z_raise = 0.0
+          #ifdef UBL_Z_RAISE_WHEN_OFF_MESH
+            + UBL_Z_RAISE_WHEN_OFF_MESH
+          #endif
+        ;
+        planner.buffer_segment(end[X_AXIS], end[Y_AXIS], end[Z_AXIS] + z_raise, end[E_AXIS], feed_rate, extruder);
         set_current_from_destination();
 
         if (g26_debug_flag)
@@ -536,7 +541,7 @@
     // increment to first segment destination
     LOOP_XYZE(i) raw[i] += diff[i];
 
-    for(;;) {  // for each mesh cell encountered during the move
+    for (;;) {  // for each mesh cell encountered during the move
 
       // Compute mesh cell invariants that remain constant for all segments within cell.
       // Note for cell index, if point is outside the mesh grid (in MESH_INSET perimeter)
@@ -546,7 +551,7 @@
       // for mesh inset area.
 
       int8_t cell_xi = (raw[X_AXIS] - (MESH_MIN_X)) * (1.0 / (MESH_X_DIST)),
-             cell_yi = (raw[Y_AXIS] - (MESH_MIN_Y)) * (1.0 / (MESH_X_DIST));
+             cell_yi = (raw[Y_AXIS] - (MESH_MIN_Y)) * (1.0 / (MESH_Y_DIST));
 
       cell_xi = constrain(cell_xi, 0, (GRID_MAX_POINTS_X) - 1);
       cell_yi = constrain(cell_yi, 0, (GRID_MAX_POINTS_Y) - 1);
@@ -586,7 +591,7 @@
       const float z_sxy0 = z_xmy0 * diff[X_AXIS],                                     // per-segment adjustment to z_cxy0
                   z_sxym = (z_xmy1 - z_xmy0) * (1.0 / (MESH_Y_DIST)) * diff[X_AXIS];  // per-segment adjustment to z_cxym
 
-      for(;;) {  // for all segments within this mesh cell
+      for (;;) {  // for all segments within this mesh cell
 
         if (--segments == 0)                      // if this is last segment, use rtarget for exact
           COPY(raw, rtarget);

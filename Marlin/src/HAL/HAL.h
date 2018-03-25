@@ -29,7 +29,7 @@
 #ifndef _HAL_H
 #define _HAL_H
 
-#include "SPI.h"
+#include "HAL_SPI.h"
 
 #define CPU_32_BIT
 
@@ -48,6 +48,10 @@
 #elif defined(__STM32F1__) || defined(TARGET_STM32F1)
   #include "math_32bit.h"
   #include "HAL_STM32F1/HAL_Stm32f1.h"
+#elif defined(STM32F7)
+  #define CPU_32_BIT
+  #include "math_32bit.h"
+  #include "HAL_STM32F7/HAL_STM32F7.h"
 #else
   #error "Unsupported Platform!"
 #endif

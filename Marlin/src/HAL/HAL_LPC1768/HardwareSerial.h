@@ -36,6 +36,7 @@ class HardwareSerial : public Stream {
 private:
   LPC_UART_TypeDef *UARTx;
 
+  uint32_t Baudrate;
   uint32_t Status;
   uint8_t RxBuffer[RX_BUFFER_SIZE];
   uint32_t RxQueueWritePos;
@@ -49,6 +50,7 @@ private:
 public:
   HardwareSerial(LPC_UART_TypeDef *UARTx)
     : UARTx(UARTx)
+    , Baudrate(0)
     , RxQueueWritePos(0)
     , RxQueueReadPos(0)
     #if TX_BUFFER_SIZE > 0
@@ -176,10 +178,5 @@ public:
   }
 
 };
-
-extern HardwareSerial Serial;
-extern HardwareSerial Serial1;
-extern HardwareSerial Serial2;
-extern HardwareSerial Serial3;
 
 #endif // MARLIN_SRC_HAL_HAL_SERIAL_H_

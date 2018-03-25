@@ -132,32 +132,40 @@
  */
 void GcodeSuite::G29() {
 
+  #if ENABLED(DEBUG_LEVELING_FEATURE) || ENABLED(PROBE_MANUALLY)
+    const bool seenQ = parser.seen('Q');
+  #else
+    constexpr bool seenQ = false;
+  #endif
+
   // G29 Q is also available if debugging
   #if ENABLED(DEBUG_LEVELING_FEATURE)
-    const bool query = parser.seen('Q');
     const uint8_t old_debug_flags = marlin_debug_flags;
-    if (query) marlin_debug_flags |= DEBUG_LEVELING;
+    if (seenQ) marlin_debug_flags |= DEBUG_LEVELING;
     if (DEBUGGING(LEVELING)) {
       DEBUG_POS(">>> G29", current_position);
       log_machine_info();
     }
     marlin_debug_flags = old_debug_flags;
     #if DISABLED(PROBE_MANUALLY)
-      if (query) return;
+      if (seenQ) return;
     #endif
   #endif
 
   #if ENABLED(PROBE_MANUALLY)
-    const bool seenA = parser.seen('A'), seenQ = parser.seen('Q'), no_action = seenA || seenQ;
+    const bool seenA = parser.seen('A');
+  #else
+    constexpr bool seenA = false;
   #endif
 
-  #if ENABLED(DEBUG_LEVELING_FEATURE) && DISABLED(PROBE_MANUALLY)
-    const bool faux = parser.boolval('C');
-  #elif ENABLED(PROBE_MANUALLY)
-    const bool faux = no_action;
-  #else
-    bool constexpr faux = false;
-  #endif
+  const bool  no_action = seenA || seenQ,
+              faux =
+                #if ENABLED(DEBUG_LEVELING_FEATURE) && DISABLED(PROBE_MANUALLY)
+                  parser.boolval('C')
+                #else
+                  no_action
+                #endif
+              ;
 
   // Don't allow auto-leveling without homing first
   if (axis_unhomed_error()) return;
@@ -227,9 +235,9 @@ void GcodeSuite::G29() {
 
     // Probe at 3 arbitrary points
     ABL_VAR vector_3 points[3] = {
-      vector_3(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, 0),
-      vector_3(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, 0),
-      vector_3(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, 0)
+      vector_3(PROBE_PT_1_X, PROBE_PT_1_Y, 0),
+      vector_3(PROBE_PT_2_X, PROBE_PT_2_Y, 0),
+      vector_3(PROBE_PT_3_X, PROBE_PT_3_Y, 0)
     };
 
   #endif // AUTO_BED_LEVELING_3POINT
@@ -252,7 +260,8 @@ void GcodeSuite::G29() {
 
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
-      if (parser.seen('W')) {
+      const bool seen_w = parser.seen('W');
+      if (seen_w) {
         if (!leveling_is_valid()) {
           SERIAL_ERROR_START();
           SERIAL_ERRORLNPGM("No bilinear grid");
@@ -290,10 +299,14 @@ void GcodeSuite::G29() {
         return;
       } // parser.seen('W')
 
+    #else
+
+      constexpr bool seen_w = false;
+
     #endif
 
     // Jettison bed leveling data
-    if (parser.seen('J')) {
+    if (!seen_w && parser.seen('J')) {
       reset_bed_level();
       return;
     }
@@ -320,8 +333,12 @@ void GcodeSuite::G29() {
       abl_grid_points_y = parser.intval('Y', GRID_MAX_POINTS_Y);
       if (parser.seenval('P')) abl_grid_points_x = abl_grid_points_y = parser.value_int();
 
-      if (abl_grid_points_x < 2 || abl_grid_points_y < 2) {
-        SERIAL_PROTOCOLLNPGM("?Number of probe points is implausible (2 minimum).");
+      if (!WITHIN(abl_grid_points_x, 2, GRID_MAX_POINTS_X)) {
+        SERIAL_PROTOCOLLNPGM("?Probe points (X) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_X) ").");
+        return;
+      }
+      if (!WITHIN(abl_grid_points_y, 2, GRID_MAX_POINTS_Y)) {
+        SERIAL_PROTOCOLLNPGM("?Probe points (Y) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_Y) ").");
         return;
       }
 
@@ -343,32 +360,9 @@ void GcodeSuite::G29() {
       front_probe_bed_position = parser.seenval('F') ? (int)RAW_Y_POSITION(parser.value_linear_units()) : FRONT_PROBE_BED_POSITION;
       back_probe_bed_position  = parser.seenval('B') ? (int)RAW_Y_POSITION(parser.value_linear_units()) : BACK_PROBE_BED_POSITION;
 
-      const bool left_out_l = left_probe_bed_position < MIN_PROBE_X,
-                 left_out = left_out_l || left_probe_bed_position > right_probe_bed_position - (MIN_PROBE_EDGE),
-                 right_out_r = right_probe_bed_position > MAX_PROBE_X,
-                 right_out = right_out_r || right_probe_bed_position < left_probe_bed_position + MIN_PROBE_EDGE,
-                 front_out_f = front_probe_bed_position < MIN_PROBE_Y,
-                 front_out = front_out_f || front_probe_bed_position > back_probe_bed_position - (MIN_PROBE_EDGE),
-                 back_out_b = back_probe_bed_position > MAX_PROBE_Y,
-                 back_out = back_out_b || back_probe_bed_position < front_probe_bed_position + MIN_PROBE_EDGE;
-
-      if (left_out || right_out || front_out || back_out) {
-        if (left_out) {
-          out_of_range_error(PSTR("(L)eft"));
-          left_probe_bed_position = left_out_l ? MIN_PROBE_X : right_probe_bed_position - (MIN_PROBE_EDGE);
-        }
-        if (right_out) {
-          out_of_range_error(PSTR("(R)ight"));
-          right_probe_bed_position = right_out_r ? MAX_PROBE_X : left_probe_bed_position + MIN_PROBE_EDGE;
-        }
-        if (front_out) {
-          out_of_range_error(PSTR("(F)ront"));
-          front_probe_bed_position = front_out_f ? MIN_PROBE_Y : back_probe_bed_position - (MIN_PROBE_EDGE);
-        }
-        if (back_out) {
-          out_of_range_error(PSTR("(B)ack"));
-          back_probe_bed_position = back_out_b ? MAX_PROBE_Y : front_probe_bed_position + MIN_PROBE_EDGE;
-        }
+      if ( !position_is_reachable_by_probe(left_probe_bed_position, front_probe_bed_position)
+        || !position_is_reachable_by_probe(right_probe_bed_position, back_probe_bed_position)) {
+        SERIAL_PROTOCOLLNPGM("? (L,R,F,B) out of bounds.");
         return;
       }
 
@@ -388,7 +382,7 @@ void GcodeSuite::G29() {
 
     // Disable auto bed leveling during G29.
     // Be formal so G29 can be done successively without G28.
-    set_bed_leveling_enabled(false);
+    if (!no_action) set_bed_leveling_enabled(false);
 
     #if HAS_BED_PROBE
       // Deploy the probe. Probe will raise if needed.
@@ -610,7 +604,7 @@ void GcodeSuite::G29() {
 
   #else // !PROBE_MANUALLY
   {
-    const bool stow_probe_after_each = parser.boolval('E');
+    const ProbePtRaise raise_after = parser.boolval('E') ? PROBE_PT_STOW : PROBE_PT_RAISE;
 
     measured_z = 0;
 
@@ -656,7 +650,7 @@ void GcodeSuite::G29() {
             if (!position_is_reachable_by_probe(xProbe, yProbe)) continue;
           #endif
 
-          measured_z = faux ? 0.001 * random(-100, 101) : probe_pt(xProbe, yProbe, stow_probe_after_each, verbose_level);
+          measured_z = faux ? 0.001 * random(-100, 101) : probe_pt(xProbe, yProbe, raise_after, verbose_level);
 
           if (isnan(measured_z)) {
             set_bed_leveling_enabled(abl_should_enable);
@@ -693,7 +687,7 @@ void GcodeSuite::G29() {
         // Retain the last probe position
         xProbe = points[i].x;
         yProbe = points[i].y;
-        measured_z = faux ? 0.001 * random(-100, 101) : probe_pt(xProbe, yProbe, stow_probe_after_each, verbose_level);
+        measured_z = faux ? 0.001 * random(-100, 101) : probe_pt(xProbe, yProbe, raise_after, verbose_level);
         if (isnan(measured_z)) {
           set_bed_leveling_enabled(abl_should_enable);
           break;
@@ -716,7 +710,7 @@ void GcodeSuite::G29() {
 
     #endif // AUTO_BED_LEVELING_3POINT
 
-    // Raise to _Z_CLEARANCE_DEPLOY_PROBE. Stow the probe.
+    // Stow the probe. No raise for FIX_MOUNTED_PROBE.
     if (STOW_PROBE()) {
       set_bed_leveling_enabled(abl_should_enable);
       measured_z = NAN;
@@ -950,12 +944,16 @@ void GcodeSuite::G29() {
     if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("<<< G29");
   #endif
 
-  report_current_position();
-
   KEEPALIVE_STATE(IN_HANDLER);
 
   if (planner.leveling_active)
     SYNC_PLAN_POSITION_KINEMATIC();
+
+  #if HAS_BED_PROBE && Z_AFTER_PROBING
+    move_z_after_probing();
+  #endif
+
+  report_current_position();
 }
 
 #endif // OLDSCHOOL_ABL

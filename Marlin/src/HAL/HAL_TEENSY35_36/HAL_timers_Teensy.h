@@ -55,7 +55,7 @@ typedef uint32_t hal_timer_t;
 #define FTM1_TIMER_RATE (F_BUS / FTM1_TIMER_PRESCALE) // 60MHz / 4 = 15MHz
 
 #define STEPPER_TIMER STEP_TIMER_NUM // Alias?
-#define STEPPER_TIMER_PRESCALE 0 // Not defined anywhere else!
+#define STEPPER_TIMER_PRESCALE (CYCLES_PER_MICROSECOND / HAL_TICKS_PER_US)
 
 #define PULSE_TIMER_NUM STEP_TIMER_NUM
 #define PULSE_TIMER_PRESCALE STEPPER_TIMER_PRESCALE
@@ -65,6 +65,8 @@ typedef uint32_t hal_timer_t;
 #define HAL_TICKS_PER_US       ((HAL_STEPPER_TIMER_RATE) / 1000000)
 
 #define TEMP_TIMER_FREQUENCY   1000
+
+#define STEP_TIMER_MIN_INTERVAL   8 // minimum time in µs between stepper interrupts
 
 #define ENABLE_STEPPER_DRIVER_INTERRUPT() HAL_timer_enable_interrupt(STEP_TIMER_NUM)
 #define DISABLE_STEPPER_DRIVER_INTERRUPT() HAL_timer_disable_interrupt(STEP_TIMER_NUM)
@@ -80,14 +82,14 @@ typedef uint32_t hal_timer_t;
 
 void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency);
 
-FORCE_INLINE static void HAL_timer_set_count(const uint8_t timer_num, const hal_timer_t count) {
+FORCE_INLINE static void HAL_timer_set_compare(const uint8_t timer_num, const hal_timer_t compare) {
   switch (timer_num) {
-    case 0: FTM0_C0V = count; break;
-    case 1: FTM1_C0V = count; break;
+    case 0: FTM0_C0V = compare; break;
+    case 1: FTM1_C0V = compare; break;
   }
 }
 
-FORCE_INLINE static hal_timer_t HAL_timer_get_count(const uint8_t timer_num) {
+FORCE_INLINE static hal_timer_t HAL_timer_get_compare(const uint8_t timer_num) {
   switch (timer_num) {
     case 0: return FTM0_C0V;
     case 1: return FTM1_C0V;
@@ -95,19 +97,17 @@ FORCE_INLINE static hal_timer_t HAL_timer_get_count(const uint8_t timer_num) {
   return 0;
 }
 
-FORCE_INLINE static void HAL_timer_set_current_count(const uint8_t timer_num, const hal_timer_t count) {
-  switch (timer_num) {
-    case 0: FTM0_CNT = count;
-    case 1: FTM1_CNT = count;
-  }
-}
-
-FORCE_INLINE static hal_timer_t HAL_timer_get_current_count(const uint8_t timer_num) {
+FORCE_INLINE static hal_timer_t HAL_timer_get_count(const uint8_t timer_num) {
   switch (timer_num) {
     case 0: return FTM0_CNT;
     case 1: return FTM1_CNT;
   }
   return 0;
+}
+
+FORCE_INLINE static void HAL_timer_restrain(const uint8_t timer_num, const uint16_t interval_ticks) {
+  const hal_timer_t mincmp = HAL_timer_get_count(timer_num) + interval_ticks;
+  if (HAL_timer_get_compare(timer_num) < mincmp) HAL_timer_set_compare(timer_num, mincmp);
 }
 
 void HAL_timer_enable_interrupt(const uint8_t timer_num);

@@ -40,10 +40,10 @@ GcodeSuite gcode;
   #include "../feature/mixing.h"
 #endif
 
-#include "../Marlin.h" // for idle()
+#include "../Marlin.h" // for idle() and suspend_auto_report
 
 uint8_t GcodeSuite::target_extruder;
-millis_t GcodeSuite::previous_cmd_ms;
+millis_t GcodeSuite::previous_move_ms;
 
 bool GcodeSuite::axis_relative_modes[] = AXIS_RELATIVE_MODES;
 
@@ -94,8 +94,10 @@ bool GcodeSuite::get_target_extruder_from_command() {
 void GcodeSuite::get_destination_from_command() {
   LOOP_XYZE(i) {
     if (parser.seen(axis_codes[i])) {
-      const float v = parser.value_axis_units((AxisEnum)i) + (axis_relative_modes[i] || relative_mode ? current_position[i] : 0);
-      destination[i] = i == E_AXIS ? v : LOGICAL_TO_NATIVE(v, i);
+      const float v = parser.value_axis_units((AxisEnum)i);
+      destination[i] = (axis_relative_modes[i] || relative_mode)
+        ? current_position[i] + v
+        : (i == E_AXIS) ? v : LOGICAL_TO_NATIVE(v, i);
     }
     else
       destination[i] = current_position[i];
@@ -119,8 +121,7 @@ void GcodeSuite::get_destination_from_command() {
  * Dwell waits immediately. It does not synchronize. Use M400 instead of G4
  */
 void GcodeSuite::dwell(millis_t time) {
-  refresh_cmd_timeout();
-  time += previous_cmd_ms;
+  time += millis();
   while (PENDING(millis(), time)) idle();
 }
 
@@ -389,7 +390,7 @@ void GcodeSuite::process_parsed_command() {
         KEEPALIVE_STATE(NOT_BUSY);
         return; // "ok" already printed
 
-      #if ENABLED(AUTO_REPORT_TEMPERATURES) && (HAS_TEMP_HOTEND || HAS_TEMP_BED)
+      #if ENABLED(AUTO_REPORT_TEMPERATURES) && HAS_TEMP_SENSOR
         case 155: M155(); break;  // M155: Set temperature auto-report interval
       #endif
 
@@ -486,7 +487,7 @@ void GcodeSuite::process_parsed_command() {
         case 665: M665(); break;  // M665: Set delta configurations
       #endif
 
-      #if ENABLED(DELTA) || ENABLED(Z_DUAL_ENDSTOPS)
+      #if ENABLED(DELTA) || ENABLED(X_DUAL_ENDSTOPS) || ENABLED(Y_DUAL_ENDSTOPS) || ENABLED(Z_DUAL_ENDSTOPS)
         case 666: M666(); break;  // M666: Set delta or dual endstop adjustment
       #endif
 
@@ -631,17 +632,17 @@ void GcodeSuite::process_parsed_command() {
       #endif
 
       #if ENABLED(ADVANCED_PAUSE_FEATURE)
-        case 600: // M600: Pause for filament change
-          M600();
-          break;
+        case 600: M600(); break;  // M600: Pause for Filament Change
+        case 603: M603(); break;  // M603: Configure Filament Change
       #endif // ADVANCED_PAUSE_FEATURE
 
       #if ENABLED(DUAL_X_CARRIAGE) || ENABLED(DUAL_NOZZLE_DUPLICATION_MODE)
         case 605: M605(); break;  // M605: Set Dual X Carriage movement mode
       #endif
 
-      #if ENABLED(MK2_MULTIPLEXER)
-        case 702: M702(); break;  // M702: Unload all extruders
+      #if ENABLED(FILAMENT_LOAD_UNLOAD_GCODES)
+        case 701: M701(); break;  // M701: Load Filament
+        case 702: M702(); break;  // M702: Unload Filament
       #endif
 
       #if ENABLED(LIN_ADVANCE)
@@ -733,6 +734,8 @@ void GcodeSuite::process_next_command() {
     #endif
   }
 
+  reset_stepper_timeout(); // Keep steppers powered
+
   // Parse the next command in the queue
   parser.parse(current_command);
   process_parsed_command();
@@ -747,7 +750,7 @@ void GcodeSuite::process_next_command() {
   void GcodeSuite::host_keepalive() {
     const millis_t ms = millis();
     static millis_t next_busy_signal_ms = 0;
-    if (host_keepalive_interval && busy_state != NOT_BUSY) {
+    if (!suspend_auto_report && host_keepalive_interval && busy_state != NOT_BUSY) {
       if (PENDING(ms, next_busy_signal_ms)) return;
       switch (busy_state) {
         case IN_HANDLER:

@@ -25,6 +25,11 @@
 
 #include "../inc/MarlinConfig.h"
 
+#if ENABLED(ULTRA_LCD) || ENABLED(MALYAN_LCD)
+  void lcd_init();
+  bool lcd_detected();
+#endif
+
 #if ENABLED(ULTRA_LCD)
 
   #include "../Marlin.h"
@@ -39,9 +44,6 @@
     constexpr bool lcd_external_control = false;
   #endif
 
-  #define BUTTON_EXISTS(BN) (defined(BTN_## BN) && BTN_## BN >= 0)
-  #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
-
   extern int16_t lcd_preheat_hotend_temp[2], lcd_preheat_bed_temp[2], lcd_preheat_fan_speed[2];
 
   #if ENABLED(LCD_BED_LEVELING)
@@ -53,16 +55,14 @@
   int16_t lcd_strlen(const char* s);
   int16_t lcd_strlen_P(const char* s);
   void lcd_update();
-  void lcd_init();
   bool lcd_hasstatus();
   void lcd_setstatus(const char* message, const bool persist=false);
   void lcd_setstatusPGM(const char* message, const int8_t level=0);
   void lcd_setalertstatusPGM(const char* message);
-  void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...);
   void lcd_reset_alert_level();
+  void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...);
   void lcd_kill_screen();
   void kill_screen(const char* lcd_msg);
-  bool lcd_detected(void);
 
   extern uint8_t lcdDrawUpdate;
   inline void lcd_refresh() { lcdDrawUpdate = LCDVIEW_CLEAR_CALL_REDRAW; }
@@ -93,6 +93,8 @@
   #endif
 
   #define LCD_UPDATE_INTERVAL 100
+  #define BUTTON_EXISTS(BN) (defined(BTN_## BN) && BTN_## BN >= 0)
+  #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
 
   #if ENABLED(ULTIPANEL)
 
@@ -104,19 +106,28 @@
 
     void lcd_goto_screen(screenFunc_t screen, const uint32_t encoder=0);
 
+    // Encoder click is directly connected
+
     #define BLEN_A 0
     #define BLEN_B 1
-    // Encoder click is directly connected
-    #if BUTTON_EXISTS(ENC)
-      #define BLEN_C 2
-    #endif
+
     #define EN_A (_BV(BLEN_A))
     #define EN_B (_BV(BLEN_B))
-    #define EN_C (_BV(BLEN_C))
+
+    #if BUTTON_EXISTS(ENC)
+      #define BLEN_C 2
+      #define EN_C (_BV(BLEN_C))
+    #endif
+
+    #if BUTTON_EXISTS(BACK)
+      #define BLEN_D 3
+      #define EN_D _BV(BLEN_D)
+      #define LCD_BACK_CLICKED (buttons & EN_D)
+    #endif
 
     extern volatile uint8_t buttons;  // The last-checked buttons in a bit array.
     void lcd_buttons_update();
-    void lcd_quick_feedback();        // Audible feedback for a button click - could also be visual
+    void lcd_quick_feedback(const bool clear_buttons); // Audible feedback for a button click - could also be visual
     void lcd_completion_feedback(const bool good=true);
 
     #if ENABLED(ADVANCED_PAUSE_FEATURE)
@@ -131,9 +142,9 @@
     #endif
 
     #if ENABLED(AUTO_BED_LEVELING_UBL)
-      void lcd_mesh_edit_setup(float initial);
+      void lcd_mesh_edit_setup(const float &initial);
       float lcd_mesh_edit();
-      void lcd_z_offset_edit_setup(float);
+      void lcd_z_offset_edit_setup(const float &initial);
       float lcd_z_offset_edit();
     #endif
 
@@ -210,9 +221,13 @@
                                             )
 
   #elif ENABLED(NEWPANEL)
+
     #define LCD_CLICKED (buttons & EN_C)
+
   #else
+
     #define LCD_CLICKED false
+
   #endif
 
   #if ENABLED(AUTO_BED_LEVELING_UBL) || ENABLED(G26_MESH_VALIDATION)
@@ -224,17 +239,17 @@
 
   constexpr bool lcd_wait_for_move = false;
 
-  inline void lcd_update() {}
   inline void lcd_init() {}
+  inline bool lcd_detected() { return true; }
+  inline void lcd_update() {}
+  inline void lcd_refresh() {}
+  inline void lcd_buttons_update() {}
   inline bool lcd_hasstatus() { return false; }
   inline void lcd_setstatus(const char* const message, const bool persist=false) { UNUSED(message); UNUSED(persist); }
   inline void lcd_setstatusPGM(const char* const message, const int8_t level=0) { UNUSED(message); UNUSED(level); }
-  inline void lcd_setalertstatusPGM(const char* message) { UNUSED(message); }
   inline void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...) { UNUSED(level); UNUSED(fmt); }
-  inline void lcd_buttons_update() {}
+  inline void lcd_setalertstatusPGM(const char* message) { UNUSED(message); }
   inline void lcd_reset_alert_level() {}
-  inline bool lcd_detected() { return true; }
-  inline void lcd_refresh() {}
 
 #endif // ULTRA_LCD
 

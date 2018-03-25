@@ -28,9 +28,14 @@
 #define TEMPERATURE_H
 
 #include "thermistor/thermistors.h"
+#include "../inc/MarlinConfig.h"
 
 #if ENABLED(BABYSTEPPING)
   extern bool axis_known_position[XYZ];
+#endif
+
+#if ENABLED(AUTO_POWER_CONTROL)
+  #include "../feature/power.h"
 #endif
 
 #if ENABLED(PID_EXTRUSION_SCALING)
@@ -44,7 +49,7 @@
 /**
  * States for ADC reading in the ISR
  */
-enum ADCSensorState {
+enum ADCSensorState : char {
   #if HAS_TEMP_0
     PrepareTemp_0,
     MeasureTemp_0,
@@ -90,7 +95,7 @@ enum ADCSensorState {
 
 #if HAS_PID_HEATING
   #define PID_K2 (1.0-PID_K1)
-  #define PID_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / (F_CPU / 64.0 / 256.0))
+  #define PID_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / TEMP_TIMER_FREQUENCY)
 
   // Apply the scale factors to the PID values
   #define scalePID_i(i)   ( (i) * PID_dT )
@@ -112,6 +117,10 @@ class Temperature {
     static int16_t current_temperature_raw[HOTENDS],
                    target_temperature[HOTENDS],
                    current_temperature_bed_raw;
+
+    #if ENABLED(AUTO_POWER_E_FANS)
+      static int16_t autofan_speed[HOTENDS];
+    #endif
 
     #if HAS_HEATER_BED
       static int16_t target_temperature_bed;
@@ -188,7 +197,15 @@ class Temperature {
       FORCE_INLINE static bool targetTooColdToExtrude(const uint8_t e) { UNUSED(e); return false; }
     #endif
 
+    FORCE_INLINE static bool hotEnoughToExtrude(const uint8_t e) { return !tooColdToExtrude(e); }
+    FORCE_INLINE static bool targetHotEnoughToExtrude(const uint8_t e) { return !targetTooColdToExtrude(e); }
+
   private:
+
+    #if EARLY_WATCHDOG
+      // If temperature controller is running
+      static bool inited;
+    #endif
 
     #if ENABLED(TEMP_SENSOR_1_AS_REDUNDANT)
       static uint16_t redundant_temperature_raw;
@@ -390,6 +407,9 @@ class Temperature {
         else if (target_temperature[HOTEND_INDEX] == 0)
           start_preheat_time(HOTEND_INDEX);
       #endif
+      #if ENABLED(AUTO_POWER_CONTROL)
+        powerManager.power_on();
+      #endif
       target_temperature[HOTEND_INDEX] = celsius;
       #if WATCH_HOTENDS
         start_watching_heater(HOTEND_INDEX);
@@ -398,6 +418,9 @@ class Temperature {
 
     static void setTargetBed(const int16_t celsius) {
       #if HAS_HEATER_BED
+        #if ENABLED(AUTO_POWER_CONTROL)
+          powerManager.power_on();
+        #endif
         target_temperature_bed =
           #ifdef BED_MAXTEMP
             min(celsius, BED_MAXTEMP)
@@ -546,7 +569,7 @@ class Temperature {
 
     #endif // HEATER_IDLE_HANDLER
 
-    #if HAS_TEMP_HOTEND || HAS_TEMP_BED
+    #if HAS_TEMP_SENSOR
       static void print_heaterstates(
         #if NUM_SERIAL > 1
           const int8_t port = -1
@@ -592,7 +615,7 @@ class Temperature {
 
     #if ENABLED(THERMAL_PROTECTION_HOTENDS) || HAS_THERMALLY_PROTECTED_BED
 
-      typedef enum TRState { TRInactive, TRFirstHeating, TRStable, TRRunaway } TRstate;
+      typedef enum TRState : char { TRInactive, TRFirstHeating, TRStable, TRRunaway } TRstate;
 
       static void thermal_runaway_protection(TRState * const state, millis_t * const timer, const float &current, const float &target, const int8_t heater_id, const uint16_t period_seconds, const uint16_t hysteresis_degc);
 
