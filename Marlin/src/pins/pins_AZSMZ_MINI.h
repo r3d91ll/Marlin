@@ -48,25 +48,46 @@
 //
 // Steppers
 //
-#define X_STEP_PIN         P2_00
-#define X_DIR_PIN          P0_05
-#define X_ENABLE_PIN       P0_04
+//#define X_STEP_PIN         P2_00
+//#define X_DIR_PIN          P0_05
+//#define X_ENABLE_PIN       P0_04
 
-#define Y_STEP_PIN         P2_01
-#define Y_DIR_PIN          P0_11
-#define Y_ENABLE_PIN       P0_10
+//#define Y_STEP_PIN         P2_01
+//#define Y_DIR_PIN          P0_11
+//#define Y_ENABLE_PIN       P0_10
+
+//#define Z_STEP_PIN         P2_02
+//#define Z_DIR_PIN          P0_20
+//#define Z_ENABLE_PIN       P0_19
+
+//#define E0_STEP_PIN        P2_03
+//#define E0_DIR_PIN         P0_22
+//#define E0_ENABLE_PIN      P0_21
+
+//#define E1_STEP_PIN        P2_08
+//#define E1_DIR_PIN         P2_13
+//#define E1_ENABLE_PIN      P4_29
+
+#define E1_STEP_PIN         P2_00
+#define E1_DIR_PIN          P0_05
+#define E1_ENABLE_PIN       P0_04
+
+#define E0_STEP_PIN         P2_01
+#define E0_DIR_PIN          P0_11
+#define E0_ENABLE_PIN       P0_10
 
 #define Z_STEP_PIN         P2_02
 #define Z_DIR_PIN          P0_20
 #define Z_ENABLE_PIN       P0_19
 
-#define E0_STEP_PIN        P2_03
-#define E0_DIR_PIN         P0_22
-#define E0_ENABLE_PIN      P0_21
+#define Y_STEP_PIN        P2_03
+#define Y_DIR_PIN         P0_22
+#define Y_ENABLE_PIN      P0_21
 
-#define E1_STEP_PIN        P2_08
-#define E1_DIR_PIN         P2_13
-#define E1_ENABLE_PIN      P4_29
+#define X_STEP_PIN        P2_08
+#define X_DIR_PIN         P2_13
+#define X_ENABLE_PIN      P4_29
+
 
 //
 // Temperature Sensors
@@ -82,8 +103,10 @@
 // EFB
 #define HEATER_0_PIN       P2_04
 #define HEATER_BED_PIN     P2_05
-#define FAN_PIN            P2_07
-#define FAN1_PIN           P0_26
+//#define FAN_PIN            P2_07
+//#define FAN1_PIN           P0_26
+#define FAN1_PIN            P2_07
+#define FAN_PIN           P0_26
 
 #if ENABLED(AZSMZ_12864)
   #define BEEPER_PIN       P1_30
