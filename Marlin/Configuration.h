@@ -336,7 +336,7 @@
 #define TEMP_WINDOW     2       // (degC) Window around target to start the residency timer x degC early.
 
 // Bed temperature must be close to target for this long before M190 returns success
-#define TEMP_BED_RESIDENCY_TIME 120  // (seconds)
+#define TEMP_BED_RESIDENCY_TIME 60  // (seconds)
 #define TEMP_BED_HYSTERESIS 5       // (degC) range of +/- temperatures considered "close" to the target one
 #define TEMP_BED_WINDOW     1       // (degC) Window around target to start the residency timer x degC early.
 
@@ -602,7 +602,7 @@
  * Override with M203
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 150, 150, 25, 35 }
+#define DEFAULT_MAX_FEEDRATE          { 150, 150, 25, 80 }
 
 /**
  * Default Max Acceleration (change/s) change = mm/s
@@ -610,7 +610,7 @@
  * Override with M201
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_MAX_ACCELERATION      { 500 500, 200, 600}
+#define DEFAULT_MAX_ACCELERATION      { 500, 500, 200, 3000}
 
 /**
  * Default Acceleration (change/s) change = mm/s
@@ -632,8 +632,8 @@
  * When changing speed and direction, if the difference is less than the
  * value set here, it may happen instantaneously.
  */
-#define DEFAULT_XJERK                  10
-#define DEFAULT_YJERK                  10
+#define DEFAULT_XJERK                  5
+#define DEFAULT_YJERK                  5
 #define DEFAULT_ZJERK                  0.3
 #define DEFAULT_EJERK                  5.0
 
@@ -751,7 +751,7 @@
  */
 #define X_PROBE_OFFSET_FROM_EXTRUDER 30  // X offset: -left  +right  [of the nozzle]
 #define Y_PROBE_OFFSET_FROM_EXTRUDER 0  // Y offset: -front +behind [the nozzle]
-#define Z_PROBE_OFFSET_FROM_EXTRUDER 0   // Z offset: -below +above  [the nozzle]
+#define Z_PROBE_OFFSET_FROM_EXTRUDER -2.0  // Z offset: -below +above  [the nozzle]
 
 // Certain types of probes need to stay away from edges
 #define MIN_PROBE_EDGE 10
@@ -945,15 +945,15 @@
  */
 //#define AUTO_BED_LEVELING_3POINT
 //#define AUTO_BED_LEVELING_LINEAR
-//#define AUTO_BED_LEVELING_BILINEAR
-#define AUTO_BED_LEVELING_UBL
+#define AUTO_BED_LEVELING_BILINEAR
+//#define AUTO_BED_LEVELING_UBL
 //#define MESH_BED_LEVELING
 
 /**
  * Normally G28 leaves leveling disabled on completion. Enable
  * this option to have G28 restore the prior leveling state.
  */
-//#define RESTORE_LEVELING_AFTER_G28
+#define RESTORE_LEVELING_AFTER_G28
 
 /**
  * Enable detailed logging of G28, G29, M48, etc.
@@ -994,30 +994,10 @@
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
 
   // Set the boundaries for probing (where the probe can reach).
-//  #define LEFT_PROBE_BED_POSITION 15
-//  #define RIGHT_PROBE_BED_POSITION 170
-//  #define FRONT_PROBE_BED_POSITION 20
-//  #define BACK_PROBE_BED_POSITION 170
-
-  // The Z probe minimum outer margin (to validate G29 parameters).
-  #define MIN_PROBE_EDGE 45
-
-  #if X_PROBE_OFFSET_FROM_EXTRUDER > 0
-  	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + X_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
-  	#define RIGHT_PROBE_BED_POSITION X_MAX_POS - MIN_PROBE_EDGE
-  #else
-  	#define LEFT_PROBE_BED_POSITION  X_MIN_POS + MIN_PROBE_EDGE
-  	#define RIGHT_PROBE_BED_POSITION X_MAX_POS + X_PROBE_OFFSET_FROM_EXTRUDER - MIN_PROBE_EDGE
-  #endif
-
-
-  #if Y_PROBE_OFFSET_FROM_EXTRUDER > 0
-    #define FRONT_PROBE_BED_POSITION Y_MIN_POS + Y_PROBE_OFFSET_FROM_EXTRUDER + MIN_PROBE_EDGE
-    #define BACK_PROBE_BED_POSITION  Y_MAX_POS - MIN_PROBE_EDGE
-  #else
-    #define FRONT_PROBE_BED_POSITION Y_MIN_POS + MIN_PROBE_EDGE
-    #define BACK_PROBE_BED_POSITION  Y_MAX_POS + Y_PROBE_OFFSET_FROM_EXTRUDER - MIN_PROBE_EDGE
-  #endif
+  //#define LEFT_PROBE_BED_POSITION MIN_PROBE_EDGE
+  //#define RIGHT_PROBE_BED_POSITION (X_BED_SIZE - MIN_PROBE_EDGE)
+  //#define FRONT_PROBE_BED_POSITION MIN_PROBE_EDGE
+  //#define BACK_PROBE_BED_POSITION (Y_BED_SIZE - MIN_PROBE_EDGE)
 
   // Probe along the Y axis, advancing X after each column
   //#define PROBE_Y_FIRST
@@ -1259,7 +1239,7 @@
  *    P1  Raise the nozzle always to Z-park height.
  *    P2  Raise the nozzle by Z-park amount, limited to Z_MAX_POS.
  */
-//#define NOZZLE_PARK_FEATURE
+#define NOZZLE_PARK_FEATURE
 
 #if ENABLED(NOZZLE_PARK_FEATURE)
   // Specify a park position as { X, Y, Z }
@@ -1531,7 +1511,6 @@
 //
 //#define ULTIPANEL
 
-
 //
 // PanelOne from T3P3 (via RAMPS 1.4 AUX2/AUX3)
 // http://reprap.org/wiki/PanelOne
@@ -1691,7 +1670,6 @@
 //
 // SSD1306 OLED full graphics generic display
 //
-//#define U8GLIB_ST7920
 //#define U8GLIB_SSD1306
 
 //
