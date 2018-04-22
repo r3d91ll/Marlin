@@ -42,6 +42,8 @@
 //
 #define X_MIN_PIN          P1_24
 #define Y_MIN_PIN          P1_26
+#define X_MAX_PIN          P1_24
+#define Y_MAX_PIN          P1_26
 #define Z_MIN_PIN          P1_28
 #define Z_MAX_PIN          P1_29
 
@@ -107,8 +109,12 @@
 #define ENET_RXD0          P1_09
 #define ENET_CRS           P1_08
 #define ENET_TX_EN         P1_04
-#define ENET_TXD0          P1_00
+//#define ENET_TXD0          P1_00
 #define ENET_TXD1          P1_01
+
+#define X_CS_PIN P0_00
+#define Y_CS_PIN P0_01
+#define Z_CS_PIN P1_10
 
 /**
  *  PWMs
