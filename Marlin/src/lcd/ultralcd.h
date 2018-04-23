@@ -52,14 +52,13 @@
     constexpr bool lcd_wait_for_move = false;
   #endif
 
-  int16_t lcd_strlen(const char* s);
-  int16_t lcd_strlen_P(const char* s);
   void lcd_update();
   bool lcd_hasstatus();
   void lcd_setstatus(const char* message, const bool persist=false);
   void lcd_setstatusPGM(const char* message, const int8_t level=0);
   void lcd_setalertstatusPGM(const char* message);
   void lcd_reset_alert_level();
+  void lcd_reset_status();
   void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...);
   void lcd_kill_screen();
   void kill_screen(const char* lcd_msg);
@@ -146,10 +145,6 @@
       float lcd_mesh_edit();
       void lcd_z_offset_edit_setup(const float &initial);
       float lcd_z_offset_edit();
-    #endif
-
-    #if ENABLED(DELTA_AUTO_CALIBRATION) && !HAS_BED_PROBE
-      float lcd_probe_pt(const float &rx, const float &ry);
     #endif
 
   #else
@@ -250,13 +245,12 @@
   inline void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...) { UNUSED(level); UNUSED(fmt); }
   inline void lcd_setalertstatusPGM(const char* message) { UNUSED(message); }
   inline void lcd_reset_alert_level() {}
+  inline void lcd_reset_status() {}
 
 #endif // ULTRA_LCD
 
 #define LCD_MESSAGEPGM(x)      lcd_setstatusPGM(PSTR(x))
 #define LCD_ALERTMESSAGEPGM(x) lcd_setalertstatusPGM(PSTR(x))
-
-void lcd_reset_status();
 
 // For i2c define BUZZ to use lcd_buzz
 #if ENABLED(LCD_USE_I2C_BUZZER)
@@ -265,6 +259,12 @@ void lcd_reset_status();
 
 #if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
   void lcd_reselect_last_file();
+#endif
+
+#if ENABLED(ULTIPANEL) && ENABLED(SDSUPPORT)
+  extern bool abort_sd_printing;
+#else
+  constexpr bool abort_sd_printing = false;
 #endif
 
 #endif // ULTRALCD_H
