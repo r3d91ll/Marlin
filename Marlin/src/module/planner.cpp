@@ -180,7 +180,7 @@ int32_t Planner::position[NUM_AXIS] = { 0 };
 uint32_t Planner::cutoff_long;
 
 float Planner::previous_speed[NUM_AXIS],
-      Planner::previous_nominal_speed;
+      Planner::previous_nominal_speed_sqr;
 
 #if ENABLED(DISABLE_INACTIVE_EXTRUDER)
   uint8_t Planner::g_uc_extruder_last_move[EXTRUDERS] = { 0 };
@@ -217,7 +217,7 @@ void Planner::init() {
     ZERO(position_float);
   #endif
   ZERO(previous_speed);
-  previous_nominal_speed = 0.0;
+  previous_nominal_speed_sqr = 0.0;
   #if ABL_PLANAR
     bed_level_matrix.set_to_identity();
   #endif
@@ -801,7 +801,7 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
   #endif
 
   // Fill variables used by the stepper in a critical section
-  bool was_enabled = STEPPER_ISR_ENABLED();
+  const bool was_enabled = STEPPER_ISR_ENABLED();
   DISABLE_STEPPER_DRIVER_INTERRUPT();
 
   if (!TEST(block->flag, BLOCK_BIT_BUSY)) { // Don't update variables if block is busy.
@@ -820,29 +820,32 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
   if (was_enabled) ENABLE_STEPPER_DRIVER_INTERRUPT();
 }
 
-// "Junction jerk" in this context is the immediate change in speed at the junction of two blocks.
-// This method will calculate the junction jerk as the euclidean distance between the nominal
-// velocities of the respective blocks.
-//inline float junction_jerk(block_t *before, block_t *after) {
-//  return SQRT(
-//    POW((before->speed_x-after->speed_x), 2)+POW((before->speed_y-after->speed_y), 2));
-//}
-
 // The kernel called by recalculate() when scanning the plan from last to first entry.
-void Planner::reverse_pass_kernel(block_t* const current, const block_t* const next) {
+void Planner::reverse_pass_kernel(block_t* const current, const block_t * const next) {
   if (current && next) {
-    // If entry speed is already at the maximum entry speed, no need to recheck. Block is cruising.
-    // If not, block in state of acceleration or deceleration. Reset entry speed to maximum and
-    // check for maximum allowable speed reductions to ensure maximum possible planned speed.
-    const float max_entry_speed = current->max_entry_speed;
-    if (current->entry_speed != max_entry_speed || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
-      // If nominal length true, max junction speed is guaranteed to be reached. Only compute
-      // for max allowable speed if block is decelerating and nominal length is false.
-      const float new_entry_speed = (TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH) || max_entry_speed <= next->entry_speed)
-        ? max_entry_speed
-        : MIN(max_entry_speed, max_allowable_speed(-current->acceleration, next->entry_speed, current->millimeters));
-      if (new_entry_speed != current->entry_speed) {
-        current->entry_speed = new_entry_speed;
+    // If entry speed is already at the maximum entry speed, and there was no change of speed
+    // in the next block, there is no need to recheck. Block is cruising and there is no need to
+    // compute anything for this block,
+    // If not, block entry speed needs to be recalculated to ensure maximum possible planned speed.
+    const float max_entry_speed_sqr = current->max_entry_speed_sqr;
+
+    // Compute maximum entry speed decelerating over the current block from its exit speed.
+    // If not at the maximum entry speed, or the previous block entry speed changed
+    if (current->entry_speed_sqr != max_entry_speed_sqr || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
+
+      // If nominal length true, max junction speed is guaranteed to be reached.
+      // If a block can de/ac-celerate from nominal speed to zero within the length of the block, then
+      // the current block and next block junction speeds are guaranteed to always be at their maximum
+      // junction speeds in deceleration and acceleration, respectively. This is due to how the current
+      // block nominal speed limits both the current and next maximum junction speeds. Hence, in both
+      // the reverse and forward planners, the corresponding block junction speed will always be at the
+      // the maximum junction speed and may always be ignored for any speed reduction checks.
+
+      const float new_entry_speed_sqr = TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH)
+        ? max_entry_speed_sqr
+        : MIN(max_entry_speed_sqr, max_allowable_speed_sqr(-current->acceleration, next->entry_speed_sqr, current->millimeters));
+      if (current->entry_speed_sqr != new_entry_speed_sqr) {
+        current->entry_speed_sqr = new_entry_speed_sqr;
         SBI(current->flag, BLOCK_BIT_RECALCULATE);
       }
     }
@@ -860,15 +863,28 @@ void Planner::reverse_pass() {
     block_t* current = &block_buffer[blocknr];
 
     // Last/newest block in buffer:
-    const float max_entry_speed = current->max_entry_speed;
-    if (current->entry_speed != max_entry_speed) {
-      // If nominal length true, max junction speed is guaranteed to be reached. Only compute
-      // for max allowable speed if block is decelerating and nominal length is false.
-      const float new_entry_speed = TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH)
-        ? max_entry_speed
-        : MIN(max_entry_speed, max_allowable_speed(-current->acceleration, MINIMUM_PLANNER_SPEED, current->millimeters));
-      if (current->entry_speed != new_entry_speed) {
-        current->entry_speed = new_entry_speed;
+
+    // If entry speed is already at the maximum entry speed, and there was no change of speed
+    // in the next block, there is no need to recheck. Block is cruising and there is no need to
+    // compute anything for this block.
+    // If not, block entry speed needs to be recalculated to ensure maximum possible planned speed.
+
+    // Compute maximum entry speed decelerating over the current block from its exit speed.
+    // if we are not at the maximum entry speed, or the previous block entry speed changed
+    const float max_entry_speed_sqr = current->max_entry_speed_sqr;
+    if (current->entry_speed_sqr != max_entry_speed_sqr) {
+      // If nominal length true, max junction speed is guaranteed to be reached.
+      // If a block can de/ac-celerate from nominal speed to zero within the length of the block, then
+      // the current block and next block junction speeds are guaranteed to always be at their maximum
+      // junction speeds in deceleration and acceleration, respectively. This is due to how the current
+      // block nominal speed limits both the current and next maximum junction speeds. Hence, in both
+      // the reverse and forward planners, the corresponding block junction speed will always be at the
+      // the maximum junction speed and may always be ignored for any speed reduction checks.
+      const float new_entry_speed_sqr = TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH)
+        ? max_entry_speed_sqr
+        : MIN(max_entry_speed_sqr, max_allowable_speed_sqr(-current->acceleration, sq(MINIMUM_PLANNER_SPEED), current->millimeters));
+      if (current->entry_speed_sqr != new_entry_speed_sqr) {
+        current->entry_speed_sqr = new_entry_speed_sqr;
         SBI(current->flag, BLOCK_BIT_RECALCULATE);
       }
     }
@@ -883,18 +899,20 @@ void Planner::reverse_pass() {
 }
 
 // The kernel called by recalculate() when scanning the plan from first to last entry.
-void Planner::forward_pass_kernel(const block_t* const previous, block_t* const current) {
+void Planner::forward_pass_kernel(const block_t * const previous, block_t* const current) {
   if (previous) {
     // If the previous block is an acceleration block, too short to complete the full speed
     // change, adjust the entry speed accordingly. Entry speeds have already been reset,
     // maximized, and reverse-planned. If nominal length is set, max junction speed is
     // guaranteed to be reached. No need to recheck.
     if (!TEST(previous->flag, BLOCK_BIT_NOMINAL_LENGTH)) {
-      if (previous->entry_speed < current->entry_speed) {
-        const float new_entry_speed = MIN(current->entry_speed, max_allowable_speed(-previous->acceleration, previous->entry_speed, previous->millimeters));
-        // Check for junction speed change
-        if (current->entry_speed != new_entry_speed) {
-          current->entry_speed = new_entry_speed;
+      if (previous->entry_speed_sqr < current->entry_speed_sqr) {
+        // Compute the maximum allowable speed
+        const float new_entry_speed_sqr = max_allowable_speed_sqr(-previous->acceleration, previous->entry_speed_sqr, previous->millimeters);
+        // If true, current block is full-acceleration
+        if (current->entry_speed_sqr > new_entry_speed_sqr) {
+          // Always <= max_entry_speed_sqr. Backward pass sets this.
+          current->entry_speed_sqr = new_entry_speed_sqr;
           SBI(current->flag, BLOCK_BIT_RECALCULATE);
         }
       }
@@ -934,13 +952,15 @@ void Planner::recalculate_trapezoids() {
       // Recalculate if current block entry or exit junction speed has changed.
       if (TEST(current->flag, BLOCK_BIT_RECALCULATE) || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
-        const float nomr = 1.0 / current->nominal_speed;
-        calculate_trapezoid_for_block(current, current->entry_speed * nomr, next->entry_speed * nomr);
+        const float current_nominal_speed = SQRT(current->nominal_speed_sqr),
+                    nomr = 1.0 / current_nominal_speed,
+                    next_entry_speed = SQRT(next->entry_speed_sqr);
+        calculate_trapezoid_for_block(current, SQRT(current->entry_speed_sqr) * nomr, next_entry_speed * nomr);
         #if ENABLED(LIN_ADVANCE)
           if (current->use_advance_lead) {
             const float comp = current->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
-            current->max_adv_steps = current->nominal_speed * comp;
-            current->final_adv_steps = next->entry_speed * comp;
+            current->max_adv_steps = current_nominal_speed * comp;
+            current->final_adv_steps = next_entry_speed * comp;
           }
         #endif
         CBI(current->flag, BLOCK_BIT_RECALCULATE); // Reset current only to ensure next trapezoid is computed
@@ -950,12 +970,13 @@ void Planner::recalculate_trapezoids() {
   }
   // Last/newest block in buffer. Exit speed is set with MINIMUM_PLANNER_SPEED. Always recalculated.
   if (next) {
-    const float nomr = 1.0 / next->nominal_speed;
-    calculate_trapezoid_for_block(next, next->entry_speed * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
+    const float next_nominal_speed = SQRT(next->nominal_speed_sqr),
+                nomr = 1.0 / next_nominal_speed;
+    calculate_trapezoid_for_block(next, SQRT(next->entry_speed_sqr) * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
     #if ENABLED(LIN_ADVANCE)
       if (next->use_advance_lead) {
         const float comp = next->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
-        next->max_adv_steps = next->nominal_speed * comp;
+        next->max_adv_steps = next_nominal_speed * comp;
         next->final_adv_steps = (MINIMUM_PLANNER_SPEED) * comp;
       }
     #endif
@@ -1005,7 +1026,7 @@ void Planner::recalculate() {
     for (uint8_t b = block_buffer_tail; b != block_buffer_head; b = next_block_index(b)) {
       block_t* block = &block_buffer[b];
       if (block->steps[X_AXIS] || block->steps[Y_AXIS] || block->steps[Z_AXIS]) {
-        float se = (float)block->steps[E_AXIS] / block->step_event_count * block->nominal_speed; // mm/sec;
+        const float se = (float)block->steps[E_AXIS] / block->step_event_count * SQRT(block->nominal_speed_sqr); // mm/sec;
         NOLESS(high, se);
       }
     }
@@ -1317,8 +1338,8 @@ void Planner::quick_stop() {
     clear_block_buffer_runtime();
   #endif
 
-  // Make sure to drop any attempt of queuing moves for at least 5 seconds
-  cleaning_buffer_counter = 5000;
+  // Make sure to drop any attempt of queuing moves for at least 1 second
+  cleaning_buffer_counter = 1000;
 
   // And stop the stepper ISR
   stepper.quick_stop();
@@ -1435,13 +1456,6 @@ bool Planner::_buffer_steps(const int32_t (&target)[XYZE]
 
   // Move buffer head
   block_buffer_head = next_buffer_head;
-
-  // Update the position (only when a move was queued)
-  static_assert(COUNT(target) > 1, "Parameter to _buffer_steps must be (&target)[XYZE]!");
-  COPY(position, target);
-  #if HAS_POSITION_FLOAT
-    COPY(position_float, target_float);
-  #endif
 
   // Recalculate and optimize trapezoidal speed profiles
   recalculate();
@@ -1821,15 +1835,15 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
   #if ENABLED(ULTRA_LCD)
     // Protect the access to the position.
-    bool was_enabled = STEPPER_ISR_ENABLED();
+    const bool was_enabled = STEPPER_ISR_ENABLED();
     DISABLE_STEPPER_DRIVER_INTERRUPT();
 
-      block_buffer_runtime_us += segment_time_us;
+    block_buffer_runtime_us += segment_time_us;
 
     if (was_enabled) ENABLE_STEPPER_DRIVER_INTERRUPT();
   #endif
 
-  block->nominal_speed = block->millimeters * inverse_secs;           //   (mm/sec) Always > 0
+  block->nominal_speed_sqr = sq(block->millimeters * inverse_secs);   //   (mm/sec)^2 Always > 0
   block->nominal_rate = CEIL(block->step_event_count * inverse_secs); // (step/sec) Always > 0
 
   #if ENABLED(FILAMENT_WIDTH_SENSOR)
@@ -1917,8 +1931,8 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   // Correct the speed
   if (speed_factor < 1.0) {
     LOOP_XYZE(i) current_speed[i] *= speed_factor;
-    block->nominal_speed *= speed_factor;
     block->nominal_rate *= speed_factor;
+    block->nominal_speed_sqr = block->nominal_speed_sqr * sq(speed_factor);
   }
 
   // Compute and limit the acceleration rate for the trapezoid generator.
@@ -2019,7 +2033,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     if (block->use_advance_lead) {
       block->advance_speed = (HAL_STEPPER_TIMER_RATE) / (extruder_advance_K * block->e_D_ratio * block->acceleration * axis_steps_per_mm[E_AXIS_N]);
       #if ENABLED(LA_DEBUG)
-        if (extruder_advance_K * block->e_D_ratio * block->acceleration * 2 < block->nominal_speed * block->e_D_ratio)
+        if (extruder_advance_K * block->e_D_ratio * block->acceleration * 2 < SQRT(block->nominal_speed_sqr) * block->e_D_ratio)
           SERIAL_ECHOLNPGM("More than 2 steps per eISR loop executed.");
         if (block->advance_speed < 200)
           SERIAL_ECHOLNPGM("eISR running at > 10kHz.");
@@ -2027,7 +2041,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     }
   #endif
 
-  float vmax_junction; // Initial limit on the segment entry velocity
+  float vmax_junction_sqr; // Initial limit on the segment entry velocity (mm/s)^2
 
   #if ENABLED(JUNCTION_DEVIATION)
 
@@ -2053,7 +2067,17 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
      * changed dynamically during operation nor can the line move geometry. This must be kept in
      * memory in the event of a feedrate override changing the nominal speeds of blocks, which can
      * change the overall maximum entry speed conditions of all blocks.
-     */
+     *
+     * #######
+     * https://github.com/MarlinFirmware/Marlin/issues/10341#issuecomment-388191754
+     *
+     * hoffbaked: on May 10 2018 tuned and improved the GRBL algorithm for Marlin:
+          Okay! It seems to be working good. I somewhat arbitrarily cut it off at 1mm
+          on then on anything with less sides than an octagon. With this, and the
+          reverse pass actually recalculating things, a corner acceleration value
+          of 1000 junction deviation of .05 are pretty reasonable. If the cycles
+          can be spared, a better acos could be used. For all I know, it may be
+          already calculated in a different place. */
 
     // Unit vector of previous path line segment
     static float previous_unit_vec[
@@ -2074,7 +2098,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     };
 
     // Skip first block or when previous_nominal_speed is used as a flag for homing and offset cycles.
-    if (moves_queued && !UNEAR_ZERO(previous_nominal_speed)) {
+    if (moves_queued && !UNEAR_ZERO(previous_nominal_speed_sqr)) {
       // Compute cosine of angle between previous and current path. (prev_unit_vec is negative)
       // NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
       float junction_cos_theta = -previous_unit_vec[X_AXIS] * unit_vec[X_AXIS]
@@ -2088,21 +2112,33 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
       if (junction_cos_theta > 0.999999) {
         // For a 0 degree acute junction, just set minimum junction speed.
-        vmax_junction = MINIMUM_PLANNER_SPEED;
+        vmax_junction_sqr = sq(MINIMUM_PLANNER_SPEED);
       }
       else {
-        junction_cos_theta = MAX(junction_cos_theta, -0.999999); // Check for numerical round-off to avoid divide by zero.
+        NOLESS(junction_cos_theta, -0.999999); // Check for numerical round-off to avoid divide by zero.
         const float sin_theta_d2 = SQRT(0.5 * (1.0 - junction_cos_theta)); // Trig half angle identity. Always positive.
 
         // TODO: Technically, the acceleration used in calculation needs to be limited by the minimum of the
         // two junctions. However, this shouldn't be a significant problem except in extreme circumstances.
-        vmax_junction = SQRT((block->acceleration * JUNCTION_DEVIATION_FACTOR * sin_theta_d2) / (1.0 - sin_theta_d2));
+        vmax_junction_sqr = (JUNCTION_ACCELERATION_FACTOR * JUNCTION_DEVIATION_FACTOR * sin_theta_d2) / (1.0 - sin_theta_d2);
+        if (block->millimeters < 1.0) {
+
+          // Fast acos approximation, minus the error bar to be safe
+          float junction_theta = (RADIANS(-40) * sq(junction_cos_theta) - RADIANS(50)) * junction_cos_theta + RADIANS(90) - 0.18;
+
+          // If angle is greater than 135 degrees (octagon), find speed for approximate arc
+          if (junction_theta > RADIANS(135)) {
+            const float limit_sqr = block->millimeters / (RADIANS(180) - junction_theta) * JUNCTION_ACCELERATION_FACTOR;
+            NOMORE(vmax_junction_sqr, limit_sqr);
+          }
+        }
       }
 
-      vmax_junction = MIN3(vmax_junction, block->nominal_speed, previous_nominal_speed);
+      // Get the lowest speed
+      vmax_junction_sqr = MIN3(vmax_junction_sqr, block->nominal_speed_sqr, previous_nominal_speed_sqr);
     }
     else // Init entry speed to zero. Assume it starts from rest. Planner will correct this later.
-      vmax_junction = 0.0;
+      vmax_junction_sqr = 0.0;
 
     COPY(previous_unit_vec, unit_vec);
 
@@ -2118,13 +2154,15 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     // Exit speed limited by a jerk to full halt of a previous last segment
     static float previous_safe_speed;
 
-    float safe_speed = block->nominal_speed;
+    const float nominal_speed = SQRT(block->nominal_speed_sqr);
+    float safe_speed = nominal_speed;
+
     uint8_t limited = 0;
     LOOP_XYZE(i) {
       const float jerk = ABS(current_speed[i]), maxj = max_jerk[i];
       if (jerk > maxj) {
         if (limited) {
-          const float mjerk = maxj * block->nominal_speed;
+          const float mjerk = maxj * nominal_speed;
           if (jerk * safe_speed > mjerk) safe_speed = mjerk / jerk;
         }
         else {
@@ -2134,18 +2172,20 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       }
     }
 
-    if (moves_queued && !UNEAR_ZERO(previous_nominal_speed)) {
+    float vmax_junction;
+    if (moves_queued && !UNEAR_ZERO(previous_nominal_speed_sqr)) {
       // Estimate a maximum velocity allowed at a joint of two successive segments.
       // If this maximum velocity allowed is lower than the minimum of the entry / exit safe velocities,
       // then the machine is not coasting anymore and the safe entry / exit velocities shall be used.
 
-      // The junction velocity will be shared between successive segments. Limit the junction velocity to their minimum.
-      // Pick the smaller of the nominal speeds. Higher speed shall not be achieved at the junction during coasting.
-      vmax_junction = MIN(block->nominal_speed, previous_nominal_speed);
-
       // Factor to multiply the previous / current nominal velocities to get componentwise limited velocities.
       float v_factor = 1;
       limited = 0;
+
+      // The junction velocity will be shared between successive segments. Limit the junction velocity to their minimum.
+      // Pick the smaller of the nominal speeds. Higher speed shall not be achieved at the junction during coasting.
+      const float previous_nominal_speed = SQRT(previous_nominal_speed_sqr);
+      vmax_junction = MIN(nominal_speed, previous_nominal_speed);
 
       // Now limit the jerk in all axes.
       const float smaller_speed_factor = vmax_junction / previous_nominal_speed;
@@ -2181,17 +2221,19 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       vmax_junction = safe_speed;
 
     previous_safe_speed = safe_speed;
+    vmax_junction_sqr = sq(vmax_junction);
+
   #endif // Classic Jerk Limiting
 
   // Max entry speed of this block equals the max exit speed of the previous block.
-  block->max_entry_speed = vmax_junction;
+  block->max_entry_speed_sqr = vmax_junction_sqr;
 
   // Initialize block entry speed. Compute based on deceleration to user-defined MINIMUM_PLANNER_SPEED.
-  const float v_allowable = max_allowable_speed(-block->acceleration, MINIMUM_PLANNER_SPEED, block->millimeters);
+  const float v_allowable_sqr = max_allowable_speed_sqr(-block->acceleration, sq(MINIMUM_PLANNER_SPEED), block->millimeters);
 
   // If we are trying to add a split block, start with the
   // max. allowed speed to avoid an interrupted first move.
-  block->entry_speed = split_move ? min(vmax_junction, v_allowable) : MINIMUM_PLANNER_SPEED;
+  block->entry_speed_sqr = !split_move ? sq(MINIMUM_PLANNER_SPEED) : MIN(vmax_junction_sqr, v_allowable_sqr);
 
   // Initialize planner efficiency flags
   // Set flag if block will always reach maximum junction speed regardless of entry/exit speeds.
@@ -2201,11 +2243,18 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   // block nominal speed limits both the current and next maximum junction speeds. Hence, in both
   // the reverse and forward planners, the corresponding block junction speed will always be at the
   // the maximum junction speed and may always be ignored for any speed reduction checks.
-  block->flag |= block->nominal_speed <= v_allowable ? BLOCK_FLAG_RECALCULATE | BLOCK_FLAG_NOMINAL_LENGTH : BLOCK_FLAG_RECALCULATE;
+  block->flag |= block->nominal_speed_sqr <= v_allowable_sqr ? BLOCK_FLAG_RECALCULATE | BLOCK_FLAG_NOMINAL_LENGTH : BLOCK_FLAG_RECALCULATE;
 
   // Update previous path unit_vector and nominal speed
   COPY(previous_speed, current_speed);
-  previous_nominal_speed = block->nominal_speed;
+  previous_nominal_speed_sqr = block->nominal_speed_sqr;
+
+  // Update the position
+  static_assert(COUNT(target) > 1, "Parameter to _buffer_steps must be (&target)[XYZE]!");
+  COPY(position, target);
+  #if HAS_POSITION_FLOAT
+    COPY(position_float, target_float);
+  #endif
 
   // Movement was accepted
   return true;
@@ -2419,7 +2468,7 @@ void Planner::_set_position_mm(const float &a, const float &b, const float &c, c
     position_float[C_AXIS] = c;
     position_float[E_AXIS] = e;
   #endif
-  previous_nominal_speed = 0.0; // Resets planner junction speeds. Assumes start from rest.
+  previous_nominal_speed_sqr = 0.0; // Resets planner junction speeds. Assumes start from rest.
   ZERO(previous_speed);
   buffer_sync_block();
 }

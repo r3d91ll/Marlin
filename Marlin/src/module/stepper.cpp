@@ -1985,7 +1985,6 @@ void Stepper::_set_position(const int32_t &a, const int32_t &b, const int32_t &c
   count_position[E_AXIS] = e;
 }
 
-
 /**
  * Get a stepper's position in steps.
  */

@@ -85,11 +85,18 @@ typedef struct {
 
   uint8_t flag;                             // Block flags (See BlockFlag enum above)
 
-  unsigned char active_extruder;            // The extruder to move (if E move)
+  // Fields used by the motion planner to manage acceleration
+  float nominal_speed_sqr,                  // The nominal speed for this block in (mm/sec)^2
+        entry_speed_sqr,                    // Entry speed at previous-current junction in (mm/sec)^2
+        max_entry_speed_sqr,                // Maximum allowable junction entry speed in (mm/sec)^2
+        millimeters,                        // The total travel of this block in mm
+        acceleration;                       // acceleration mm/sec^2
 
   // Fields used by the Bresenham algorithm for tracing the line
   int32_t steps[NUM_AXIS];                  // Step count along each axis
   uint32_t step_event_count;                // The number of step events required to complete this block
+
+  uint8_t active_extruder;                  // The extruder to move (if E move)
 
   #if ENABLED(MIXING_EXTRUDER)
     uint32_t mix_event_count[MIXING_STEPPERS]; // Scaled step_event_count for the mixing steppers
@@ -119,13 +126,6 @@ typedef struct {
              final_adv_steps;               // advance steps due to exit speed
     float e_D_ratio;
   #endif
-
-  // Fields used by the motion planner to manage acceleration
-  float nominal_speed,                      // The nominal speed for this block in mm/sec
-        entry_speed,                        // Entry speed at previous-current junction in mm/sec
-        max_entry_speed,                    // Maximum allowable junction entry speed in mm/sec
-        millimeters,                        // The total travel of this block in mm
-        acceleration;                       // acceleration mm/sec^2
 
   uint32_t nominal_rate,                    // The nominal step rate for this block in step_events/sec
            initial_rate,                    // The jerk-adjusted step rate at start of block
@@ -253,9 +253,9 @@ class Planner {
     static float previous_speed[NUM_AXIS];
 
     /**
-     * Nominal speed of previous path line segment
+     * Nominal speed of previous path line segment (mm/s)^2
      */
-    static float previous_nominal_speed;
+    static float previous_nominal_speed_sqr;
 
     /**
      * Limit where 64bit math is necessary for acceleration calculation
@@ -739,12 +739,12 @@ class Planner {
     }
 
     /**
-     * Calculate the maximum allowable speed at this point, in order
-     * to reach 'target_velocity' using 'acceleration' within a given
+     * Calculate the maximum allowable speed squared at this point, in order
+     * to reach 'target_velocity_sqr' using 'acceleration' within a given
      * 'distance'.
      */
-    static float max_allowable_speed(const float &accel, const float &target_velocity, const float &distance) {
-      return SQRT(sq(target_velocity) - 2 * accel * distance);
+    static float max_allowable_speed_sqr(const float &accel, const float &target_velocity_sqr, const float &distance) {
+      return target_velocity_sqr - 2 * accel * distance;
     }
 
     #if ENABLED(BEZIER_JERK_CONTROL)
