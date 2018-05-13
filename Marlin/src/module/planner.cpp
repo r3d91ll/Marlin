@@ -804,7 +804,8 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
   const bool was_enabled = STEPPER_ISR_ENABLED();
   DISABLE_STEPPER_DRIVER_INTERRUPT();
 
-  if (!TEST(block->flag, BLOCK_BIT_BUSY)) { // Don't update variables if block is busy.
+  // Don't update variables if block is busy: It is being interpreted by the planner
+  if (!TEST(block->flag, BLOCK_BIT_BUSY)) {
     block->accelerate_until = accelerate_steps;
     block->decelerate_after = accelerate_steps + plateau_steps;
     block->initial_rate = initial_rate;
@@ -2374,6 +2375,7 @@ bool Planner::buffer_segment(const float &a, const float &b, const float &c, con
 
     uint8_t next_buffer_head;
     block_t *block = get_next_free_block(next_buffer_head, 2);
+    block_t *first_block = block;
 
     // Fill the block with the specified movement
     if (
@@ -2416,6 +2418,11 @@ bool Planner::buffer_segment(const float &a, const float &b, const float &c, con
     // If any of the movements was added
     if (added) {
 
+      // Mark the first block to be inserted as a Hold block, so the stepper
+      // does not consume it yet - thus allowing the planner to perform proper
+      // planning!
+      SBI(first_block->flag, BLOCK_BIT_HOLD);
+
       // Move buffer head and add all the blocks that were filled
       // successfully to the movement queue.
       block_buffer_head = buffer_head;
@@ -2429,6 +2436,9 @@ bool Planner::buffer_segment(const float &a, const float &b, const float &c, con
 
       // Recalculate and optimize trapezoidal speed profiles
       recalculate();
+
+      // And now release the 1st (and 2nd) block for the stepper ISR
+      CBI(first_block->flag, BLOCK_BIT_HOLD);
     }
   }
   else if (
