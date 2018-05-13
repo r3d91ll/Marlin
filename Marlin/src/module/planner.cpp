@@ -823,7 +823,7 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
 
 // The kernel called by recalculate() when scanning the plan from last to first entry.
 void Planner::reverse_pass_kernel(block_t* const current, const block_t * const next) {
-  if (current && next) {
+  if (current) {
     // If entry speed is already at the maximum entry speed, and there was no change of speed
     // in the next block, there is no need to recheck. Block is cruising and there is no need to
     // compute anything for this block,
@@ -832,7 +832,7 @@ void Planner::reverse_pass_kernel(block_t* const current, const block_t * const 
 
     // Compute maximum entry speed decelerating over the current block from its exit speed.
     // If not at the maximum entry speed, or the previous block entry speed changed
-    if (current->entry_speed_sqr != max_entry_speed_sqr || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
+    if (current->entry_speed_sqr != max_entry_speed_sqr || (next && TEST(next->flag, BLOCK_BIT_RECALCULATE))) {
 
       // If nominal length true, max junction speed is guaranteed to be reached.
       // If a block can de/ac-celerate from nominal speed to zero within the length of the block, then
@@ -844,7 +844,7 @@ void Planner::reverse_pass_kernel(block_t* const current, const block_t * const 
 
       const float new_entry_speed_sqr = TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH)
         ? max_entry_speed_sqr
-        : MIN(max_entry_speed_sqr, max_allowable_speed_sqr(-current->acceleration, next->entry_speed_sqr, current->millimeters));
+        : MIN(max_entry_speed_sqr, max_allowable_speed_sqr(-current->acceleration, next ? next->entry_speed_sqr : sq(MINIMUM_PLANNER_SPEED), current->millimeters));
       if (current->entry_speed_sqr != new_entry_speed_sqr) {
         current->entry_speed_sqr = new_entry_speed_sqr;
         SBI(current->flag, BLOCK_BIT_RECALCULATE);
@@ -861,41 +861,19 @@ void Planner::reverse_pass() {
   if (movesplanned() > 2) {
     const uint8_t endnr = next_block_index(block_buffer_tail); // tail is running. tail+1 shouldn't be altered because it's connected to the running block.
     uint8_t blocknr = prev_block_index(block_buffer_head);
-    block_t* current = &block_buffer[blocknr];
 
-    // Last/newest block in buffer:
-
-    // If entry speed is already at the maximum entry speed, and there was no change of speed
-    // in the next block, there is no need to recheck. Block is cruising and there is no need to
-    // compute anything for this block.
-    // If not, block entry speed needs to be recalculated to ensure maximum possible planned speed.
-
-    // Compute maximum entry speed decelerating over the current block from its exit speed.
-    // if we are not at the maximum entry speed, or the previous block entry speed changed
-    const float max_entry_speed_sqr = current->max_entry_speed_sqr;
-    if (current->entry_speed_sqr != max_entry_speed_sqr) {
-      // If nominal length true, max junction speed is guaranteed to be reached.
-      // If a block can de/ac-celerate from nominal speed to zero within the length of the block, then
-      // the current block and next block junction speeds are guaranteed to always be at their maximum
-      // junction speeds in deceleration and acceleration, respectively. This is due to how the current
-      // block nominal speed limits both the current and next maximum junction speeds. Hence, in both
-      // the reverse and forward planners, the corresponding block junction speed will always be at the
-      // the maximum junction speed and may always be ignored for any speed reduction checks.
-      const float new_entry_speed_sqr = TEST(current->flag, BLOCK_BIT_NOMINAL_LENGTH)
-        ? max_entry_speed_sqr
-        : MIN(max_entry_speed_sqr, max_allowable_speed_sqr(-current->acceleration, sq(MINIMUM_PLANNER_SPEED), current->millimeters));
-      if (current->entry_speed_sqr != new_entry_speed_sqr) {
-        current->entry_speed_sqr = new_entry_speed_sqr;
-        SBI(current->flag, BLOCK_BIT_RECALCULATE);
-      }
-    }
-
-    do {
-      const block_t * const next = current;
-      blocknr = prev_block_index(blocknr);
+    // Perform the reverse pass
+    block_t *current, *next = NULL;
+    while (blocknr != endnr) {
+      // Perform the reverse pass - Only consider non sync blocks
       current = &block_buffer[blocknr];
-      reverse_pass_kernel(current, next);
-    } while (blocknr != endnr);
+      if (!TEST(current->flag, BLOCK_BIT_SYNC_POSITION)) {
+        reverse_pass_kernel(current, next);
+        next = current;
+      }
+      // Advance to the next
+      blocknr = prev_block_index(blocknr);
+    }
   }
 }
 
@@ -926,15 +904,21 @@ void Planner::forward_pass_kernel(const block_t * const previous, block_t* const
  * Once in reverse and once forward. This implements the forward pass.
  */
 void Planner::forward_pass() {
-  block_t* block[3] = { NULL, NULL, NULL };
+  const uint8_t endnr = block_buffer_head;
+  uint8_t blocknr = block_buffer_tail;
 
-  for (uint8_t b = block_buffer_tail; b != block_buffer_head; b = next_block_index(b)) {
-    block[0] = block[1];
-    block[1] = block[2];
-    block[2] = &block_buffer[b];
-    forward_pass_kernel(block[0], block[1]);
+  // Perform the foward pass
+  block_t *current, *previous = NULL;
+  while (blocknr != endnr) {
+    // Perform the forward pass - Only consider non-sync blocks
+    current = &block_buffer[blocknr];
+    if (!TEST(current->flag, BLOCK_BIT_SYNC_POSITION)) {
+      forward_pass_kernel(previous, current);
+      previous = current;
+    }
+    // Advance to the previous
+    blocknr = next_block_index(blocknr);
   }
-  forward_pass_kernel(block[1], block[2]);
 }
 
 /**
