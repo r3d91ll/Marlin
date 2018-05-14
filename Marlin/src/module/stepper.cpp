@@ -375,7 +375,7 @@ void Stepper::set_directions() {
    *
    *   Floating point arithmetic execution time cost is prohibitive, so we will transform the math to
    * use fixed point values to be able to evaluate it in realtime. Assuming a maximum of 250000 steps
-   * per second (driver pulses should at least be 2uS hi/2uS lo), and allocating 2 bits to avoid
+   * per second (driver pulses should at least be 2µS hi/2µS lo), and allocating 2 bits to avoid
    * overflows on the evaluation of the Bézier curve, means we can use
    *
    *   t: unsigned Q0.32 (0 <= t < 1) |range 0 to 0xFFFFFFFF unsigned
@@ -1145,14 +1145,27 @@ void Stepper::set_directions() {
 HAL_STEP_TIMER_ISR {
   HAL_timer_isr_prologue(STEP_TIMER_NUM);
 
+  // Program timer compare for the maximum period, so it does NOT
+  // flag an interrupt while this ISR is running - So changes from small
+  // periods to big periods are respected and the timer does not reset to 0
+  HAL_timer_set_compare(STEP_TIMER_NUM, HAL_TIMER_TYPE_MAX);
+
   // Call the ISR scheduler
   hal_timer_t ticks = Stepper::isr_scheduler();
 
-  // Program timer to fire an interrupt at the proper time
-  HAL_timer_set_compare(STEP_TIMER_NUM, ticks);
+  // Now 'ticks' contains the period to the next Stepper ISR.
+  // Potential problem: Since the timer continues to run, the requested
+  // compare value may already have passed.
+  // 
+  // Assuming at least 6µs between calls to this ISR...
+  // On AVR the ISR epilogue is estimated at 40 instructions - close to 2.5µS.
+  // On ARM the ISR epilogue is estimated at 10 instructions - close to 200nS.
+  // In either case leave at least 4µS for other tasks to execute.
+  const hal_timer_t minticks = HAL_timer_get_count(STEP_TIMER_NUM) + hal_timer_t((HAL_TICKS_PER_US) * 4); // ISR never takes more than 1ms, so this shouldn't cause trouble
+  NOLESS(ticks, MAX(minticks, hal_timer_t((STEP_TIMER_MIN_INTERVAL) * (HAL_TICKS_PER_US))));
 
-  // Make sure stepper ISR doesn't monopolize the CPU
-  HAL_timer_restrain(STEP_TIMER_NUM, STEP_TIMER_MIN_INTERVAL * HAL_TICKS_PER_US);
+  // Set the next ISR to fire at the proper time
+  HAL_timer_set_compare(STEP_TIMER_NUM, ticks);
 
   HAL_timer_isr_epilogue(STEP_TIMER_NUM);
 }
