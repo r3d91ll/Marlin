@@ -1543,7 +1543,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   if (de < 0) SBI(dm, E_AXIS);
 
   const float esteps_float = de * e_factor[extruder];
-  const int32_t esteps = ABS(esteps_float) + 0.5;
+  const uint32_t esteps = ABS(esteps_float) + 0.5;
 
   // Clear all flags, including the "busy" bit
   block->flag = 0x00;
@@ -2260,10 +2260,10 @@ void Planner::buffer_sync_block() {
 
   block->flag = BLOCK_FLAG_SYNC_POSITION;
 
-  block->steps[A_AXIS] = position[A_AXIS];
-  block->steps[B_AXIS] = position[B_AXIS];
-  block->steps[C_AXIS] = position[C_AXIS];
-  block->steps[E_AXIS] = position[E_AXIS];
+  block->position[A_AXIS] = position[A_AXIS];
+  block->position[B_AXIS] = position[B_AXIS];
+  block->position[C_AXIS] = position[C_AXIS];
+  block->position[E_AXIS] = position[E_AXIS];
 
   // If this is the first added movement, reload the delay, otherwise, cancel it.
   if (block_buffer_head == block_buffer_tail) {
