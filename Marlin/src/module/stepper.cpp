@@ -98,6 +98,10 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
 
 uint8_t Stepper::last_direction_bits = 0;        // The next stepping-bits to be output
 
+int8_t Stepper::last_movement_direction[NUM_AXIS];  // Last Movement directions, as computed when the last movement was fetched from planner
+uint8_t Stepper::last_movement_extruder = 0xFF;     // Last movement extruder, as computed when the last movement was fetched from planner
+bool Stepper::abort_current_block;                  // Signals to the stepper that current block should be aborted
+
 #if ENABLED(X_DUAL_ENDSTOPS)
   bool Stepper::locked_x_motor = false, Stepper::locked_x2_motor = false;
 #endif
@@ -314,10 +318,6 @@ void Stepper::set_directions() {
     }
   #endif // !LIN_ADVANCE
 }
-
-#if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-  extern volatile uint8_t e_hit;
-#endif
 
 #if ENABLED(BEZIER_JERK_CONTROL)
   /**
@@ -1156,7 +1156,7 @@ HAL_STEP_TIMER_ISR {
   // Now 'ticks' contains the period to the next Stepper ISR.
   // Potential problem: Since the timer continues to run, the requested
   // compare value may already have passed.
-  // 
+  //
   // Assuming at least 6µs between calls to this ISR...
   // On AVR the ISR epilogue is estimated at 40 instructions - close to 2.5µS.
   // On ARM the ISR epilogue is estimated at 10 instructions - close to 200nS.
@@ -1228,6 +1228,15 @@ hal_timer_t Stepper::isr_scheduler() {
 // to keep the delay between the interrupt triggering and pulse generation
 // as constant as possible!!!!
 void Stepper::stepper_pulse_phase_isr() {
+
+  // If we must abort the current block, do so!
+  if (abort_current_block) {
+    abort_current_block = false;
+    if (current_block) {
+      current_block = NULL;
+      planner.discard_current_block();
+    }
+  }
 
   // If there is no current block, do nothing
   if (!current_block) return;
@@ -1562,12 +1571,15 @@ uint32_t Stepper::stepper_block_phase_isr() {
         }
       }
 
-      // Initialize the trapezoid generator from the current block.
-      static int8_t last_extruder = -1;
+      // Compute movement direction for proper endstop handling
+      LOOP_NA(i) {
+        last_movement_direction[i] = (current_block->steps[i] < 0) ? -1 : ((current_block->steps[i] > 0) ? 1 : 0);
+      }
 
+      // Initialize the trapezoid generator from the current block.
       #if ENABLED(LIN_ADVANCE)
         #if E_STEPPERS > 1
-          if (current_block->active_extruder != last_extruder) {
+          if (current_block->active_extruder != last_movement_extruder) {
             current_adv_steps = 0; // If the now active extruder wasn't in use during the last move, its pressure is most likely gone.
             LA_active_extruder = current_block->active_extruder;
           }
@@ -1580,9 +1592,9 @@ uint32_t Stepper::stepper_block_phase_isr() {
         }
       #endif
 
-      if (current_block->direction_bits != last_direction_bits || current_block->active_extruder != last_extruder) {
+      if (current_block->direction_bits != last_direction_bits || current_block->active_extruder != last_movement_extruder) {
         last_direction_bits = current_block->direction_bits;
-        last_extruder = current_block->active_extruder;
+        last_movement_extruder = current_block->active_extruder;
         set_directions();
       }
 
@@ -1616,11 +1628,6 @@ uint32_t Stepper::stepper_block_phase_isr() {
       #if ENABLED(MIXING_EXTRUDER)
         MIXING_STEPPERS_LOOP(i)
           counter_m[i] = -(current_block->mix_event_count[i] >> 1);
-      #endif
-
-      #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-        e_hit = 2; // Needed for the case an endstop is already triggered before the new move begins.
-                   // No 'change' can be detected.
       #endif
 
       #if ENABLED(Z_LATE_ENABLE)
@@ -2018,28 +2025,12 @@ int32_t Stepper::position(const AxisEnum axis) {
   return v;
 }
 
-void Stepper::quick_stop() {
-  const bool was_enabled = STEPPER_ISR_ENABLED();
-  DISABLE_STEPPER_DRIVER_INTERRUPT();
-
-  if (current_block) {
-    step_events_completed = current_block->step_event_count;
-    current_block = NULL;
-  }
-
-  if (was_enabled) ENABLE_STEPPER_DRIVER_INTERRUPT();
-}
-
-void Stepper::kill_current_block() {
-  const bool was_enabled = STEPPER_ISR_ENABLED();
-  DISABLE_STEPPER_DRIVER_INTERRUPT();
-
-  if (current_block)
-    step_events_completed = current_block->step_event_count;
-
-  if (was_enabled) ENABLE_STEPPER_DRIVER_INTERRUPT();
-}
-
+// Signal endstops were triggered - This function can be called from
+// an ISR context  (Temperature, Stepper or limits ISR), so we must
+// be very careful here. If the interrupt being preempted was the
+// Stepper ISR (this CAN happen with the endstop limits ISR) then
+// when the stepper ISR resumes, we must be very sure that the movement
+// is properly cancelled
 void Stepper::endstop_triggered(const AxisEnum axis) {
   const bool was_enabled = STEPPER_ISR_ENABLED();
   DISABLE_STEPPER_DRIVER_INTERRUPT();
@@ -2058,14 +2049,7 @@ void Stepper::endstop_triggered(const AxisEnum axis) {
   #endif // !COREXY && !COREXZ && !COREYZ
 
   // Discard the rest of the move if there is a current block
-  if (current_block) {
-
-    // Kill the current block being executed
-    step_events_completed = current_block->step_event_count;
-
-    // Prep to get a new block after cleaning
-    current_block = NULL;
-  }
+  quick_stop();
 
   if (was_enabled) ENABLE_STEPPER_DRIVER_INTERRUPT();
 }

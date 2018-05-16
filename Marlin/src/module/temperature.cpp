@@ -2242,13 +2242,7 @@ void Temperature::isr() {
   #endif
 
   // Update endstops state, if enabled
-  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-    extern volatile uint8_t e_hit;
-    if (e_hit && ENDSTOPS_ENABLED) {
-      endstops.update();
-      e_hit--;
-    }
-  #else
+  #if DISABLED(ENDSTOP_INTERRUPTS_FEATURE)
     if (ENDSTOPS_ENABLED) endstops.update();
   #endif
 
