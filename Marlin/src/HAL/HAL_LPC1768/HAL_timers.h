@@ -60,7 +60,8 @@
 
 #define _HAL_TIMER(T) _CAT(LPC_TIM, T)
 #define _HAL_TIMER_IRQ(T) TIMER##T##_IRQn
-#define _HAL_TIMER_ISR(T) extern "C" void TIMER##T##_IRQHandler(void)
+#define __HAL_TIMER_ISR(T) extern "C" void TIMER##T##_IRQHandler(void)
+#define _HAL_TIMER_ISR(T)  __HAL_TIMER_ISR(T)
 
 typedef uint32_t hal_timer_t;
 #define HAL_TIMER_TYPE_MAX 0xFFFFFFFF
