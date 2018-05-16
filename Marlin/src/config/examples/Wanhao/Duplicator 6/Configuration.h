@@ -114,7 +114,7 @@
  *
  * :[-1, 0, 1, 2, 3, 4, 5, 6, 7]
  */
-#define SERIAL_PORT_2 -1
+//#define SERIAL_PORT_2 -1
 
 /**
  * This setting determines the communication speed of the printer.
@@ -1543,12 +1543,6 @@
 // Note: Usually sold with a blue PCB.
 //
 //#define G3D_PANEL
-
-//
-// RigidBot Panel V1.0
-// http://www.inventapart.com/
-//
-//#define RIGIDBOT_PANEL
 
 //
 // RigidBot Panel V1.0

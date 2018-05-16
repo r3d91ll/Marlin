@@ -91,7 +91,7 @@ void plan_arc(
     angular_travel = RADIANS(360);
 
   const float flat_mm = radius * angular_travel,
-              mm_of_travel = linear_travel ? HYPOT(flat_mm, linear_travel) : FABS(flat_mm);
+              mm_of_travel = linear_travel ? HYPOT(flat_mm, linear_travel) : ABS(flat_mm);
   if (mm_of_travel < 0.001) return;
 
   uint16_t segments = FLOOR(mm_of_travel / (MM_PER_ARC_SEGMENT));
@@ -223,10 +223,7 @@ void plan_arc(
     planner.buffer_line_kinematic(cart, fr_mm_s, active_extruder);
   #endif
 
-  // As far as the parser is concerned, the position is now == target. In reality the
-  // motion control system might still be processing the action and the real tool position
-  // in any intermediate location.
-  set_current_from_destination();
+  COPY(current_position, cart);
 } // plan_arc
 
 /**
