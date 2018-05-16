@@ -98,7 +98,7 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
 
 uint8_t Stepper::last_direction_bits = 0;        // The next stepping-bits to be output
 
-int8_t Stepper::last_movement_direction[NUM_AXIS];  // Last Movement directions, as computed when the last movement was fetched from planner
+bool Stepper::last_movement_non_null[NUM_AXIS];     // Last Movement in the given direction is not null, as computed when the last movement was fetched from planner
 uint8_t Stepper::last_movement_extruder = 0xFF;     // Last movement extruder, as computed when the last movement was fetched from planner
 bool Stepper::abort_current_block;                  // Signals to the stepper that current block should be aborted
 
@@ -1573,7 +1573,7 @@ uint32_t Stepper::stepper_block_phase_isr() {
 
       // Compute movement direction for proper endstop handling
       LOOP_NA(i) {
-        last_movement_direction[i] = (current_block->steps[i] < 0) ? -1 : ((current_block->steps[i] > 0) ? 1 : 0);
+        last_movement_non_null[i] = current_block->steps[i] != 0;
       }
 
       // Initialize the trapezoid generator from the current block.
@@ -1634,7 +1634,7 @@ uint32_t Stepper::stepper_block_phase_isr() {
         // If delayed Z enable, enable it now. This option will severely interfere with
         //  timing between pulses when chaining motion between blocks, and it could lead
         //  to lost steps in both X and Y axis, so avoid using it unless strictly necessary!!
-        if (current_block->steps[Z_AXIS] > 0) {
+        if (current_block->steps[Z_AXIS] != 0) {
           enable_Z();
         }
       #endif

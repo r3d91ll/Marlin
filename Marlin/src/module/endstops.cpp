@@ -306,7 +306,7 @@ void Endstops::M119() {
 #if ENABLED(X_DUAL_ENDSTOPS)
   void Endstops::test_dual_x_endstops(const EndstopEnum es1, const EndstopEnum es2) {
     const byte x_test = TEST_ENDSTOP(es1) | (TEST_ENDSTOP(es2) << 1); // bit 0 for X, bit 1 for X2
-    if (x_test && stepper.movement_direction(X_AXIS) > 0) {
+    if (x_test && stepper.movement_non_null(X_AXIS)) {
       SBI(endstop_hit_bits, X_MIN);
       if (!stepper.performing_homing || (x_test == 0x3))  //if not performing home or if both endstops were trigged during homing...
         stepper.quick_stop();
@@ -316,7 +316,7 @@ void Endstops::M119() {
 #if ENABLED(Y_DUAL_ENDSTOPS)
   void Endstops::test_dual_y_endstops(const EndstopEnum es1, const EndstopEnum es2) {
     const byte y_test = TEST_ENDSTOP(es1) | (TEST_ENDSTOP(es2) << 1); // bit 0 for Y, bit 1 for Y2
-    if (y_test && stepper.movement_direction(Y_AXIS) > 0) {
+    if (y_test && stepper.movement_non_null(Y_AXIS)) {
       SBI(endstop_hit_bits, Y_MIN);
       if (!stepper.performing_homing || (y_test == 0x3))  //if not performing home or if both endstops were trigged during homing...
         stepper.quick_stop();
@@ -326,7 +326,7 @@ void Endstops::M119() {
 #if ENABLED(Z_DUAL_ENDSTOPS)
   void Endstops::test_dual_z_endstops(const EndstopEnum es1, const EndstopEnum es2) {
     const byte z_test = TEST_ENDSTOP(es1) | (TEST_ENDSTOP(es2) << 1); // bit 0 for Z, bit 1 for Z2
-    if (z_test && stepper.movement_direction(Z_AXIS) > 0) {
+    if (z_test && stepper.movement_non_null(Z_AXIS)) {
       SBI(endstop_hit_bits, Z_MIN);
       if (!stepper.performing_homing || (z_test == 0x3))  //if not performing home or if both endstops were trigged during homing...
         stepper.quick_stop();
@@ -361,9 +361,9 @@ void Endstops::update() {
     if (G38_move) {
       UPDATE_ENDSTOP_BIT(Z, MIN_PROBE);
       if (TEST_ENDSTOP(_ENDSTOP(Z, MIN_PROBE))) {
-        if      (stepper.movement_direction(_AXIS(X)) > 0) { _ENDSTOP_HIT(X, MIN); planner.endstop_triggered(_AXIS(X)); }
-        else if (stepper.movement_direction(_AXIS(Y)) > 0) { _ENDSTOP_HIT(Y, MIN); planner.endstop_triggered(_AXIS(Y)); }
-        else if (stepper.movement_direction(_AXIS(Z)) > 0) { _ENDSTOP_HIT(Z, MIN); planner.endstop_triggered(_AXIS(Z)); }
+        if      (stepper.movement_non_null(_AXIS(X))) { _ENDSTOP_HIT(X, MIN); planner.endstop_triggered(_AXIS(X)); }
+        else if (stepper.movement_non_null(_AXIS(Y))) { _ENDSTOP_HIT(Y, MIN); planner.endstop_triggered(_AXIS(Y)); }
+        else if (stepper.movement_non_null(_AXIS(Z))) { _ENDSTOP_HIT(Z, MIN); planner.endstop_triggered(_AXIS(Z)); }
         G38_endstop_hit = true;
       }
     }
@@ -374,7 +374,7 @@ void Endstops::update() {
    */
 
   #if IS_CORE
-    #define S_(N) stepper.movement_direction(CORE_AXIS_##N)
+    #define S_(N) stepper.movement_non_null(CORE_AXIS_##N)
     #define D_(N) stepper.motor_direction(CORE_AXIS_##N)
   #endif
 
@@ -394,7 +394,7 @@ void Endstops::update() {
     #define X_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) X_CMP D_(2)) )
     #define X_AXIS_HEAD X_HEAD
   #else
-    #define X_MOVE_TEST stepper.movement_direction(X_AXIS) > 0
+    #define X_MOVE_TEST stepper.movement_non_null(X_AXIS)
     #define X_AXIS_HEAD X_AXIS
   #endif
 
@@ -414,7 +414,7 @@ void Endstops::update() {
     #define Y_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) Y_CMP D_(2)) )
     #define Y_AXIS_HEAD Y_HEAD
   #else
-    #define Y_MOVE_TEST stepper.movement_direction(Y_AXIS) > 0
+    #define Y_MOVE_TEST stepper.movement_non_null(Y_AXIS)
     #define Y_AXIS_HEAD Y_AXIS
   #endif
 
@@ -434,7 +434,7 @@ void Endstops::update() {
     #define Z_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) Z_CMP D_(2)) )
     #define Z_AXIS_HEAD Z_HEAD
   #else
-    #define Z_MOVE_TEST stepper.movement_direction(Z_AXIS) > 0
+    #define Z_MOVE_TEST stepper.movement_non_null(Z_AXIS)
     #define Z_AXIS_HEAD Z_AXIS
   #endif
 

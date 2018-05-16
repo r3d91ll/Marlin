@@ -89,7 +89,7 @@ typedef struct {
         acceleration;                       // acceleration mm/sec^2
 
   // Fields used by the Bresenham algorithm for tracing the line
-  int32_t steps[NUM_AXIS];                  // Step count along each axis
+  uint32_t steps[NUM_AXIS];                 // Step count along each axis
   uint32_t step_event_count;                // The number of step events required to complete this block
 
   uint8_t active_extruder;                  // The extruder to move (if E move)
