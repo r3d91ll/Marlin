@@ -256,7 +256,7 @@ class Stepper {
     FORCE_INLINE static uint32_t calc_timer_interval(uint32_t step_rate) {
       uint32_t timer;
 
-      NOMORE(step_rate, MAX_STEP_FREQUENCY);
+      NOMORE(step_rate, uint32_t(MAX_STEP_FREQUENCY));
 
       // TODO: HAL: tidy this up, use Conditionals_post.h
       #ifdef CPU_32_BIT
@@ -295,7 +295,7 @@ class Stepper {
         timer = uint32_t(HAL_STEPPER_TIMER_RATE) / step_rate;
         NOLESS(timer, min_time_per_step); // (STEP_DOUBLER_FREQUENCY * 2 kHz - this should never happen)
       #else
-        NOLESS(step_rate, F_CPU / 500000);
+        NOLESS(step_rate, uint32_t(F_CPU / 500000U));
         step_rate -= F_CPU / 500000; // Correct for minimal speed
         if (step_rate >= (8 * 256)) { // higher step rate
           uint8_t tmp_step_rate = (step_rate & 0x00FF);
