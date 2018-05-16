@@ -29,6 +29,21 @@
 #include "HAL.h"
 #include "HAL_timers_Teensy.h"
 
+/** \brief  Instruction Synchronization Barrier
+
+    Instruction Synchronization Barrier flushes the pipeline in the processor,
+    so that all instructions following the ISB are fetched from cache or
+    memory, after the instruction has been completed.
+ */
+#define __ISB() __isb(0xF)
+
+/** \brief  Data Synchronization Barrier
+
+    This function acts as a special kind of Data Memory Barrier.
+    It completes when all explicit memory accesses before this instruction complete.
+ */
+#define __DSB() __dsb(0xF)
+
 
 void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
   switch (timer_num) {
