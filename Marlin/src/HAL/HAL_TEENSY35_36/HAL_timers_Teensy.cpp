@@ -65,6 +65,11 @@ void HAL_timer_disable_interrupt(const uint8_t timer_num) {
     case 0: NVIC_DISABLE_IRQ(IRQ_FTM0); break;
     case 1: NVIC_DISABLE_IRQ(IRQ_FTM1); break;
   }
+
+  // We NEED memory barriers to ensure Interrupts are actually disabled!
+  // ( https://dzone.com/articles/nvic-disabling-interrupts-on-arm-cortex-m-and-the )
+  __DSB();
+  __ISB();
 }
 
 bool HAL_timer_interrupt_enabled(const uint8_t timer_num) {

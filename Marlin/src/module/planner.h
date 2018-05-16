@@ -685,7 +685,7 @@ class Planner {
           // Protect the access to the variable. Only required for AVR, as
           //  any 32bit CPU offers atomic access to 32bit variables
           bool was_enabled = STEPPER_ISR_ENABLED();
-          DISABLE_STEPPER_DRIVER_INTERRUPT();
+          if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
         #endif
 
         millis_t bbru = block_buffer_runtime_us;
@@ -709,7 +709,7 @@ class Planner {
           // Protect the access to the variable. Only required for AVR, as
           //  any 32bit CPU offers atomic access to 32bit variables
           bool was_enabled = STEPPER_ISR_ENABLED();
-          DISABLE_STEPPER_DRIVER_INTERRUPT();
+          if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
         #endif
 
         block_buffer_runtime_us = 0;

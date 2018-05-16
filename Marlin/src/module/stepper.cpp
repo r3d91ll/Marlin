@@ -2013,7 +2013,7 @@ int32_t Stepper::position(const AxisEnum axis) {
     // Protect the access to the position. Only required for AVR, as
     //  any 32bit CPU offers atomic access to 32bit variables
     const bool was_enabled = STEPPER_ISR_ENABLED();
-    DISABLE_STEPPER_DRIVER_INTERRUPT();
+  if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
   #endif
 
   int32_t v = count_position[axis];
@@ -2033,7 +2033,7 @@ int32_t Stepper::position(const AxisEnum axis) {
 // is properly cancelled
 void Stepper::endstop_triggered(const AxisEnum axis) {
   const bool was_enabled = STEPPER_ISR_ENABLED();
-  DISABLE_STEPPER_DRIVER_INTERRUPT();
+  if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 
   #if IS_CORE
 
@@ -2059,7 +2059,7 @@ int32_t Stepper::triggered_position(const AxisEnum axis) {
     // Protect the access to the position. Only required for AVR, as
     //  any 32bit CPU offers atomic access to 32bit variables
     const bool was_enabled = STEPPER_ISR_ENABLED();
-    DISABLE_STEPPER_DRIVER_INTERRUPT();
+  if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
   #endif
 
   const int32_t v = endstops_trigsteps[axis];
@@ -2076,7 +2076,7 @@ void Stepper::report_positions() {
 
   // Protect the access to the position.
   const bool was_enabled = STEPPER_ISR_ENABLED();
-  DISABLE_STEPPER_DRIVER_INTERRUPT();
+  if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 
   const int32_t xpos = count_position[X_AXIS],
                 ypos = count_position[Y_AXIS],

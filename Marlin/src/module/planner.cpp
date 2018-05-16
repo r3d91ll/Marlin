@@ -809,7 +809,7 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
 
   // Fill variables used by the stepper in a critical section
   const bool was_enabled = STEPPER_ISR_ENABLED();
-  DISABLE_STEPPER_DRIVER_INTERRUPT();
+  if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 
   // Don't update variables if block is busy: It is being interpreted by the planner
   if (!TEST(block->flag, BLOCK_BIT_BUSY)) {
@@ -1368,7 +1368,7 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
 
       // Protect the access to the position.
       const bool was_enabled = STEPPER_ISR_ENABLED();
-      DISABLE_STEPPER_DRIVER_INTERRUPT();
+      if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 
       // ((a1+a2)+(a1-a2))/2 -> (a1+a2+a1-a2)/2 -> (a1+a1)/2 -> a1
       // ((a1+a2)-(a1-a2))/2 -> (a1+a2-a1+a2)/2 -> (a2+a2)/2 -> a2
@@ -1822,7 +1822,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   #if ENABLED(ULTRA_LCD)
     // Protect the access to the position.
     const bool was_enabled = STEPPER_ISR_ENABLED();
-    DISABLE_STEPPER_DRIVER_INTERRUPT();
+    if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 
     block_buffer_runtime_us += segment_time_us;
 
