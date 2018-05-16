@@ -719,7 +719,7 @@ float soft_endstop_min[XYZ] = { X_MIN_BED, Y_MIN_BED, Z_MIN_POS },
       // The length divided by the segment size
       // At least one segment is required
       uint16_t segments = cartesian_mm / segment_size;
-      NOLESS(segments, 1);
+      NOLESS(segments, 1U);
 
       // The approximate length of each segment
       const float inv_segments = 1.0 / float(segments),
