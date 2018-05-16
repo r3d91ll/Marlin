@@ -43,7 +43,7 @@
 #include "../../module/endstops.h"
 
 // One ISR for all EXT-Interrupts
-void endstop_ISR(void) { if (ENDSTOPS_ENABLED) endstops.update(); }
+void endstop_ISR_worker(void) { if (ENDSTOPS_ENABLED) endstops.update(); }
 
 /**
  * Patch for pins_arduino.h (...\Arduino\hardware\arduino\avr\variants\mega\pins_arduino.h)
