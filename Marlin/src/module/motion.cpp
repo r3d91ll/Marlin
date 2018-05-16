@@ -570,7 +570,7 @@ float soft_endstop_min[XYZ] = { X_MIN_BED, Y_MIN_BED, Z_MIN_POS },
     #endif
 
     // At least one segment is required
-    NOLESS(segments, 1);
+    NOLESS(segments, 1U);
 
     // The approximate length of each segment
     const float inv_segments = 1.0 / float(segments),
