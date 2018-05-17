@@ -755,6 +755,7 @@ void Planner::init() {
  * by the provided factors.
  */
 void Planner::calculate_trapezoid_for_block(block_t* const block, const float &entry_factor, const float &exit_factor) {
+	
   uint32_t initial_rate = CEIL(block->nominal_rate * entry_factor),
            final_rate = CEIL(block->nominal_rate * exit_factor); // (steps per second)
 
@@ -936,18 +937,22 @@ void Planner::forward_pass() {
 void Planner::recalculate_trapezoids() {
   int8_t block_index = block_buffer_tail;
   block_t *current, *next = NULL;
+	float current_entry_speed, next_entry_speed = 0.0;
 
   while (block_index != block_buffer_head) {
     current = next;
+		current_entry_speed = next_entry_speed;
+		
     next = &block_buffer[block_index];
+		next_entry_speed = SQRT(next->entry_speed_sqr);
+		
     if (current) {
       // Recalculate if current block entry or exit junction speed has changed.
       if (TEST(current->flag, BLOCK_BIT_RECALCULATE) || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         const float current_nominal_speed = SQRT(current->nominal_speed_sqr),
-                    nomr = 1.0 / current_nominal_speed,
-                    next_entry_speed = SQRT(next->entry_speed_sqr);
-        calculate_trapezoid_for_block(current, SQRT(current->entry_speed_sqr) * nomr, next_entry_speed * nomr);
+                    nomr = 1.0 / current_nominal_speed;
+        calculate_trapezoid_for_block(current, current_entry_speed * nomr, next_entry_speed * nomr);
         #if ENABLED(LIN_ADVANCE)
           if (current->use_advance_lead) {
             const float comp = current->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
@@ -964,7 +969,7 @@ void Planner::recalculate_trapezoids() {
   if (next) {
     const float next_nominal_speed = SQRT(next->nominal_speed_sqr),
                 nomr = 1.0 / next_nominal_speed;
-    calculate_trapezoid_for_block(next, SQRT(next->entry_speed_sqr) * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
+    calculate_trapezoid_for_block(next, next_entry_speed * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
     #if ENABLED(LIN_ADVANCE)
       if (next->use_advance_lead) {
         const float comp = next->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
