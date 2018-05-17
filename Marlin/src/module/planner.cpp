@@ -755,6 +755,7 @@ void Planner::init() {
  * by the provided factors.
  */
 void Planner::calculate_trapezoid_for_block(block_t* const block, const float &entry_factor, const float &exit_factor) {
+
   uint32_t initial_rate = CEIL(block->nominal_rate * entry_factor),
            final_rate = CEIL(block->nominal_rate * exit_factor); // (steps per second)
 
@@ -914,7 +915,7 @@ void Planner::forward_pass() {
   const uint8_t endnr = block_buffer_head;
   uint8_t blocknr = block_buffer_tail;
 
-  // Perform the foward pass
+  // Perform the forward pass
   block_t *current, *previous = NULL;
   while (blocknr != endnr) {
     // Perform the forward pass - Only consider non-sync blocks
@@ -934,37 +935,69 @@ void Planner::forward_pass() {
  * recalculate() after updating the blocks.
  */
 void Planner::recalculate_trapezoids() {
-  int8_t block_index = block_buffer_tail;
-  block_t *current, *next = NULL;
+  uint8_t block_index = block_buffer_tail;
 
-  while (block_index != block_buffer_head) {
-    current = next;
+  // As there could be a sync block in the head of the queue, and the next loop must not
+  // recalculate the head block (as it needs to be specially handled), scan backwards until
+  // we find the first non SYNC block
+  uint8_t head_block_index = block_buffer_head;
+  while (head_block_index != block_index) {
+
+    // Go back (head always point to the first free block)
+    uint8_t prev_index = prev_block_index(head_block_index);
+
+    // Get the pointer to the block
+    block_t *prev = &block_buffer[prev_index];
+
+    // If not dealing with a sync block, we are done. The last block is not a SYNC block
+    if (!TEST(prev->flag, BLOCK_BIT_SYNC_POSITION))
+      break;
+
+    // Lets examine the previous block. This one and all the following are SYNC blocks
+    head_block_index = prev_index;
+  };
+
+  // Go from the tail (currently executed block) to the first block, without including it)
+  block_t *current = NULL, *next = NULL;
+  float current_entry_speed = 0.0, next_entry_speed = 0.0;
+  while (block_index != head_block_index) {
+
     next = &block_buffer[block_index];
-    if (current) {
-      // Recalculate if current block entry or exit junction speed has changed.
-      if (TEST(current->flag, BLOCK_BIT_RECALCULATE) || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
-        // NOTE: Entry and exit factors always > 0 by all previous logic operations.
-        const float current_nominal_speed = SQRT(current->nominal_speed_sqr),
-                    nomr = 1.0 / current_nominal_speed,
-                    next_entry_speed = SQRT(next->entry_speed_sqr);
-        calculate_trapezoid_for_block(current, SQRT(current->entry_speed_sqr) * nomr, next_entry_speed * nomr);
-        #if ENABLED(LIN_ADVANCE)
-          if (current->use_advance_lead) {
-            const float comp = current->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
-            current->max_adv_steps = current_nominal_speed * comp;
-            current->final_adv_steps = next_entry_speed * comp;
-          }
-        #endif
-        CBI(current->flag, BLOCK_BIT_RECALCULATE); // Reset current only to ensure next trapezoid is computed
+
+    // Skip sync blocks
+    if (!TEST(next->flag, BLOCK_BIT_SYNC_POSITION)) {
+      next_entry_speed = SQRT(next->entry_speed_sqr);
+
+      if (current) {
+        // Recalculate if current block entry or exit junction speed has changed.
+        if (TEST(current->flag, BLOCK_BIT_RECALCULATE) || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
+          // NOTE: Entry and exit factors always > 0 by all previous logic operations.
+          const float current_nominal_speed = SQRT(current->nominal_speed_sqr),
+                      nomr = 1.0 / current_nominal_speed;
+          calculate_trapezoid_for_block(current, current_entry_speed * nomr, next_entry_speed * nomr);
+          #if ENABLED(LIN_ADVANCE)
+            if (current->use_advance_lead) {
+              const float comp = current->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
+              current->max_adv_steps = current_nominal_speed * comp;
+              current->final_adv_steps = next_entry_speed * comp;
+            }
+          #endif
+          CBI(current->flag, BLOCK_BIT_RECALCULATE); // Reset current only to ensure next trapezoid is computed
+        }
       }
+
+      current = next;
+      current_entry_speed = next_entry_speed;
     }
+
     block_index = next_block_index(block_index);
   }
+
   // Last/newest block in buffer. Exit speed is set with MINIMUM_PLANNER_SPEED. Always recalculated.
   if (next) {
     const float next_nominal_speed = SQRT(next->nominal_speed_sqr),
                 nomr = 1.0 / next_nominal_speed;
-    calculate_trapezoid_for_block(next, SQRT(next->entry_speed_sqr) * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
+    calculate_trapezoid_for_block(next, next_entry_speed * nomr, (MINIMUM_PLANNER_SPEED) * nomr);
     #if ENABLED(LIN_ADVANCE)
       if (next->use_advance_lead) {
         const float comp = next->e_D_ratio * extruder_advance_K * axis_steps_per_mm[E_AXIS];
