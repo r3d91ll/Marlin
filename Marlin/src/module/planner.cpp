@@ -755,7 +755,7 @@ void Planner::init() {
  * by the provided factors.
  */
 void Planner::calculate_trapezoid_for_block(block_t* const block, const float &entry_factor, const float &exit_factor) {
-	
+
   uint32_t initial_rate = CEIL(block->nominal_rate * entry_factor),
            final_rate = CEIL(block->nominal_rate * exit_factor); // (steps per second)
 
@@ -937,15 +937,15 @@ void Planner::forward_pass() {
 void Planner::recalculate_trapezoids() {
   int8_t block_index = block_buffer_tail;
   block_t *current, *next = NULL;
-	float current_entry_speed, next_entry_speed = 0.0;
+  float current_entry_speed, next_entry_speed = 0.0;
 
   while (block_index != block_buffer_head) {
     current = next;
-		current_entry_speed = next_entry_speed;
-		
+    current_entry_speed = next_entry_speed;
+
     next = &block_buffer[block_index];
-		next_entry_speed = SQRT(next->entry_speed_sqr);
-		
+    next_entry_speed = SQRT(next->entry_speed_sqr);
+
     if (current) {
       // Recalculate if current block entry or exit junction speed has changed.
       if (TEST(current->flag, BLOCK_BIT_RECALCULATE) || TEST(next->flag, BLOCK_BIT_RECALCULATE)) {
