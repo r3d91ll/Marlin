@@ -32,18 +32,27 @@
 #include "../module/temperature.h"
 #include "../lcd/ultralcd.h"
 
-// TEST_ENDSTOP: test the old and the current status of an endstop
-#define TEST_ENDSTOP(ENDSTOP) (TEST(current_endstop_bits & old_endstop_bits, ENDSTOP))
+#if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+  #include HAL_PATH(../HAL, endstop_interrupts.h)
+#endif
+
+// TEST_ENDSTOP: test the current status of an endstop
+#define TEST_ENDSTOP(ENDSTOP) (TEST(current_endstop_bits, ENDSTOP))
+
+#if HAS_BED_PROBE
+  #define ENDSTOPS_ENABLED  (endstops.enabled || endstops.z_probe_enabled)
+#else
+  #define ENDSTOPS_ENABLED  endstops.enabled
+#endif
 
 Endstops endstops;
 
 // public:
 
 bool Endstops::enabled, Endstops::enabled_globally; // Initialized by settings.load()
-volatile char Endstops::endstop_hit_bits; // use X_MIN, Y_MIN, Z_MIN and Z_MIN_PROBE as BIT value
+volatile uint8_t Endstops::endstop_hit_bits; // use X_MIN, Y_MIN, Z_MIN and Z_MIN_PROBE as BIT value
 
-Endstops::esbits_t Endstops::current_endstop_bits = 0,
-                   Endstops::old_endstop_bits = 0;
+Endstops::esbits_t Endstops::current_endstop_bits = 0;
 
 #if HAS_BED_PROBE
   volatile bool Endstops::z_probe_enabled = false;
@@ -196,7 +205,132 @@ void Endstops::init() {
     #endif
   #endif
 
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    setup_endstop_interrupts();
+  #endif
+
+  // Enable endstops
+  enable_globally(
+    #if ENABLED(ENDSTOPS_ALWAYS_ON_DEFAULT)
+      true
+    #else
+      false
+    #endif
+  );
+
 } // Endstops::init
+
+// Called from ISR. A change was detected. Find out what happened!
+void Endstops::check_possible_change() {
+
+  // If endstops are disabled, do nothing.
+  if (!(ENDSTOPS_ENABLED))
+    return;
+
+  // Do a polling of the endstops right now!
+  endstops.update();
+}
+
+// Called from ISR: Poll endstop state if required
+void Endstops::poll() {
+
+  #if ENABLED(PINS_DEBUGGING)
+    endstops.run_monitor();  // report changes in endstop status
+  #endif
+
+  #if DISABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    // If endstops are disabled, do nothing.
+    if (!(ENDSTOPS_ENABLED))
+      return;
+
+    // Do a polling of the endstops
+    endstops.update();
+  #endif
+}
+
+void Endstops::enable_globally(bool onoff) {
+  enabled_globally = enabled = onoff;
+
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    // If enabling endstops, make sure to update their state
+    if (onoff) {
+
+      // Do a polling of the endstops right now!
+      endstops.update();
+
+    }
+  #endif
+}
+
+// Enable / disable endstop checking
+void Endstops::enable(bool onoff) {
+  enabled = onoff;
+
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    // If enabling endstops, make sure to update their state
+    if (onoff) {
+
+      // Do a polling of the endstops right now!
+      endstops.update();
+
+    }
+  #endif
+}
+
+
+// Disable / Enable endstops based on ENSTOPS_ONLY_FOR_HOMING and global enable
+void Endstops::not_homing() {
+  enabled = enabled_globally;
+
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    // If enabling endstops, make sure to update their state
+    if (enabled) {
+
+      // Do a polling of the endstops right now!
+      endstops.update();
+    }
+  #endif
+}
+
+// Clear endstops (i.e., they were hit intentionally) to suppress the report
+void Endstops::hit_on_purpose() {
+  endstop_hit_bits = 0;
+
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    // If enabling endstops, make sure to update their state
+    if (enabled) {
+
+      // Do a polling of the endstops right now!
+      endstops.update();
+    }
+  #endif
+}
+
+// Enable / disable endstop z-probe checking
+#if HAS_BED_PROBE
+  void Endstops::enable_z_probe(bool onoff) {
+    z_probe_enabled = onoff;
+
+    #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+      // If enabling endstops, make sure to update their state
+      if (enabled) {
+
+        // Do a polling of the endstops right now!
+        endstops.update();
+      }
+    #endif
+  }
+#endif
+
+#if ENABLED(PINS_DEBUGGING)
+  void Endstops::run_monitor() {
+    if (!monitor_flag) return;
+    static uint8_t monitor_count = 16;  // offset this check from the others
+    monitor_count += _BV(1);            //  15 Hz
+    monitor_count &= 0x7F;
+    if (!monitor_count) monitor();      // report changes in endstop status
+  }
+#endif
 
 void Endstops::report_state() {
   if (endstop_hit_bits) {
@@ -334,7 +468,7 @@ void Endstops::M119() {
   }
 #endif
 
-// Check endstops - Called from ISR!
+// Check endstops - Could be called from ISR!
 void Endstops::update() {
 
   #define _ENDSTOP(AXIS, MINMAX) AXIS ##_## MINMAX
@@ -564,9 +698,6 @@ void Endstops::update() {
       #endif
     }
   }
-
-  old_endstop_bits = current_endstop_bits;
-
 } // Endstops::update()
 
 #if ENABLED(PINS_DEBUGGING)

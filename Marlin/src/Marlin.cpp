@@ -95,10 +95,6 @@
   #include "feature/I2CPositionEncoder.h"
 #endif
 
-#if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-  #include HAL_PATH(HAL, endstop_interrupts.h)
-#endif
-
 #if HAS_TRINAMIC
   #include "feature/tmc_util.h"
 #endif
@@ -748,7 +744,11 @@ void setup() {
 
   print_job_timer.init();   // Initial setup of print job timer
 
-  stepper.init();    // Initialize stepper, this enables interrupts!
+  // Init endstops and pullups
+  endstops.init();
+
+  // Initialize stepper, this enables interrupts!
+  stepper.init();
 
   #if HAS_SERVOS
     servo_init();
@@ -858,10 +858,6 @@ void setup() {
   #if ENABLED(EXPERIMENTAL_I2CBUS) && I2C_SLAVE_ADDRESS > 0
     i2c.onReceive(i2c_on_receive);
     i2c.onRequest(i2c_on_request);
-  #endif
-
-  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-    setup_endstop_interrupts();
   #endif
 
   #if ENABLED(SWITCHING_EXTRUDER) && !DONT_SWITCH
