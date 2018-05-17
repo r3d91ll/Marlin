@@ -40,7 +40,7 @@
 #include "../../module/endstops.h"
 
 // One ISR for all EXT-Interrupts
-void endstop_ISR(void) { if (ENDSTOPS_ENABLED) endstops.update(); }
+void endstop_ISR(void) { endstops.check_possible_change(); }
 
 /**
  *  Endstop interrupts for Due based targets.

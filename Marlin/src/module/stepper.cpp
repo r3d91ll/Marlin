@@ -1598,6 +1598,15 @@ uint32_t Stepper::stepper_block_phase_isr() {
         set_directions();
       }
 
+      // At this point, we must be sure the movement we are about to execute
+      //  is not trying to force the head against a limit switch. If using
+      //  interrupt driven change detection, and we are already against a limit
+      //  then no call to the stepper.endstop_triggered() function will be done
+      //  and the movement will be done against the endstop. So, check the limits
+      //  here: If the movement is against the limits, the block will be marked as
+      //  to be killed, and on the next call to this ISR, will be discarded.
+      endstops.check_possible_change();
+
       // No acceleration / deceleration time elapsed so far
       acceleration_time = deceleration_time = 0;
 
@@ -1885,9 +1894,6 @@ void Stepper::init() {
     if (!E_ENABLE_ON) E4_ENABLE_WRITE(HIGH);
   #endif
 
-  // Init endstops and pullups
-  endstops.init();
-
   #define _STEP_INIT(AXIS) AXIS ##_STEP_INIT
   #define _WRITE_STEP(AXIS, HIGHLOW) AXIS ##_STEP_WRITE(HIGHLOW)
   #define _DISABLE(AXIS) disable_## AXIS()
@@ -2032,6 +2038,7 @@ int32_t Stepper::position(const AxisEnum axis) {
 // when the stepper ISR resumes, we must be very sure that the movement
 // is properly cancelled
 void Stepper::endstop_triggered(const AxisEnum axis) {
+
   const bool was_enabled = STEPPER_ISR_ENABLED();
   if (was_enabled) DISABLE_STEPPER_DRIVER_INTERRUPT();
 

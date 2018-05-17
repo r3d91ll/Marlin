@@ -29,7 +29,7 @@
 #include "../../module/endstops.h"
 
 // One ISR for all EXT-Interrupts
-void endstop_ISR(void) { if (ENDSTOPS_ENABLED) endstops.update(); }
+void endstop_ISR(void) { endstops.check_possible_change(); }
 
 void setup_endstop_interrupts(void) {
   #if HAS_X_MAX
