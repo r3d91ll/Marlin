@@ -25,6 +25,7 @@
  */
 
 #include "temperature.h"
+#include "endstops.h"
 
 #include "../Marlin.h"
 #include "../lcd/ultralcd.h"
@@ -1075,9 +1076,7 @@ void Temperature::updateTemperaturesFromRawValues() {
     watchdog_reset();
   #endif
 
-  CRITICAL_SECTION_START;
-  temp_meas_ready = false;
-  CRITICAL_SECTION_END;
+  temp_meas_ready = false; // (a bool (8bit) is always atomic clearable)
 }
 
 
@@ -1717,6 +1716,7 @@ void Temperature::set_current_temp_raw() {
  *  - Step the babysteps value for each axis towards 0
  *  - For PINS_DEBUGGING, monitor and report endstop pins
  *  - For ENDSTOP_INTERRUPTS_FEATURE check endstops if flagged
+ *  - Call planner.tick to count down its "ignore" time
  */
 HAL_TEMP_TIMER_ISR {
   HAL_timer_isr_prologue(TEMP_TIMER_NUM);
@@ -2241,15 +2241,13 @@ void Temperature::isr() {
     endstops.run_monitor();  // report changes in endstop status
   #endif
 
-  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-
-    extern volatile uint8_t e_hit;
-
-    if (e_hit && ENDSTOPS_ENABLED) {
-      endstops.update();  // call endstop update routine
-      e_hit--;
-    }
+  // Update endstops state, if enabled
+  #if DISABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    if (ENDSTOPS_ENABLED) endstops.update();
   #endif
+
+  // Periodically call the planner timer
+  planner.tick();
 }
 
 #if HAS_TEMP_SENSOR
