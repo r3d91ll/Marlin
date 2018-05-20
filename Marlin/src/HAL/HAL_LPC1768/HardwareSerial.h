@@ -23,6 +23,11 @@
 #ifndef HARDWARE_SERIAL_H_
 #define HARDWARE_SERIAL_H_
 
+#include "../../inc/MarlinConfigPre.h"
+#if ENABLED(EMERGENCY_PARSER)
+  #include "../../feature/emergency_parser.h"
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <Stream.h>
@@ -36,6 +41,7 @@ class HardwareSerial : public Stream {
 private:
   LPC_UART_TypeDef *UARTx;
 
+  uint32_t Baudrate;
   uint32_t Status;
   uint8_t RxBuffer[RX_BUFFER_SIZE];
   uint32_t RxQueueWritePos;
@@ -45,15 +51,22 @@ private:
     uint32_t TxQueueWritePos;
     uint32_t TxQueueReadPos;
   #endif
+  #if ENABLED(EMERGENCY_PARSER)
+    EmergencyParser::State emergency_state;
+  #endif
 
 public:
   HardwareSerial(LPC_UART_TypeDef *UARTx)
     : UARTx(UARTx)
+    , Baudrate(0)
     , RxQueueWritePos(0)
     , RxQueueReadPos(0)
     #if TX_BUFFER_SIZE > 0
       , TxQueueWritePos(0)
       , TxQueueReadPos(0)
+    #endif
+    #if ENABLED(EMERGENCY_PARSER)
+      , emergency_state(EmergencyParser::State::EP_RESET)
     #endif
   {
   }
@@ -136,8 +149,6 @@ public:
     printf("%f" , value );
   }
 
-
-
   void println(const char value[]) {
     printf("%s\n" , value);
   }
@@ -176,10 +187,5 @@ public:
   }
 
 };
-
-extern HardwareSerial Serial;
-extern HardwareSerial Serial1;
-extern HardwareSerial Serial2;
-extern HardwareSerial Serial3;
 
 #endif // MARLIN_SRC_HAL_HAL_SERIAL_H_

@@ -50,7 +50,7 @@ void GcodeSuite::M18_M84() {
       stepper.finish_and_disable();
     }
     else {
-      stepper.synchronize();
+      planner.synchronize();
       if (parser.seen('X')) disable_X();
       if (parser.seen('Y')) disable_Y();
       if (parser.seen('Z')) disable_Z();
@@ -60,7 +60,7 @@ void GcodeSuite::M18_M84() {
     }
 
     #if ENABLED(AUTO_BED_LEVELING_UBL) && ENABLED(ULTIPANEL)  // Only needed with an LCD
-      ubl.lcd_map_control = defer_return_to_status = false;
+      if (ubl.lcd_map_control) ubl.lcd_map_control = defer_return_to_status = false;
     #endif
   }
 }

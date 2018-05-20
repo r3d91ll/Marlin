@@ -30,8 +30,7 @@
 #ifndef LANGUAGE_CA_H
 #define LANGUAGE_CA_H
 
-#define MAPPER_C2C3  // because of "ó"
-#define DISPLAY_CHARSET_ISO10646_1
+#define CHARSIZE 2
 
 #define WELCOME_MSG                         MACHINE_NAME _UxGT(" preparada.")
 #define MSG_SD_INSERTED                     _UxGT("Targeta detectada.")
@@ -100,9 +99,15 @@
 #define MSG_SELECT                          _UxGT("Select")
 #define MSG_ACC                             _UxGT("Accel")
 #define MSG_JERK                            _UxGT("Jerk")
-#define MSG_VX_JERK                         _UxGT("Vx-jerk")
-#define MSG_VY_JERK                         _UxGT("Vy-jerk")
-#define MSG_VZ_JERK                         _UxGT("Vz-jerk")
+#if IS_KINEMATIC
+  #define MSG_VA_JERK                       _UxGT("Va-jerk")
+  #define MSG_VB_JERK                       _UxGT("Vb-jerk")
+  #define MSG_VC_JERK                       _UxGT("Vc-jerk")
+#else
+  #define MSG_VA_JERK                       _UxGT("Vx-jerk")
+  #define MSG_VB_JERK                       _UxGT("Vy-jerk")
+  #define MSG_VC_JERK                       _UxGT("Vz-jerk")
+#endif
 #define MSG_VE_JERK                         _UxGT("Ve-jerk")
 #define MSG_VMAX                            _UxGT("Vmax ")
 #define MSG_VMIN                            _UxGT("Vmin")
@@ -111,9 +116,15 @@
 #define MSG_A_RETRACT                       _UxGT("Accel. retracc")
 #define MSG_A_TRAVEL                        _UxGT("Accel. Viatge")
 #define MSG_STEPS_PER_MM                    _UxGT("Passos/mm")
-#define MSG_XSTEPS                          _UxGT("Xpassos/mm")
-#define MSG_YSTEPS                          _UxGT("Ypassos/mm")
-#define MSG_ZSTEPS                          _UxGT("Zpassos/mm")
+#if IS_KINEMATIC
+  #define MSG_ASTEPS                        _UxGT("Apassos/mm")
+  #define MSG_BSTEPS                        _UxGT("Bpassos/mm")
+  #define MSG_CSTEPS                        _UxGT("Cpassos/mm")
+#else
+  #define MSG_ASTEPS                        _UxGT("Xpassos/mm")
+  #define MSG_BSTEPS                        _UxGT("Ypassos/mm")
+  #define MSG_CSTEPS                        _UxGT("Zpassos/mm")
+#endif
 #define MSG_ESTEPS                          _UxGT("Epassos/mm")
 #define MSG_E1STEPS                         _UxGT("E1passos/mm")
 #define MSG_E2STEPS                         _UxGT("E2passos/mm")
@@ -140,7 +151,6 @@
 #define MSG_NO_CARD                         _UxGT("No hi ha targeta")
 #define MSG_DWELL                           _UxGT("En repos...")
 #define MSG_USERWAIT                        _UxGT("Esperant usuari..")
-#define MSG_RESUMING                        _UxGT("Reprenent imp.")
 #define MSG_PRINT_ABORTED                   _UxGT("Imp. cancelada")
 #define MSG_NO_MOVE                         _UxGT("Sense moviment.")
 #define MSG_KILLED                          _UxGT("MATAT.")
@@ -172,16 +182,14 @@
 #define MSG_ERR_MINTEMP                     _UxGT("Err: TEMP MINIMA")
 #define MSG_ERR_MAXTEMP_BED                 _UxGT("Err: TEMPMAX LLIT")
 #define MSG_ERR_MINTEMP_BED                 _UxGT("Err: TEMPMIN LLIT")
-#define MSG_ERR_Z_HOMING                    _UxGT("G28 Z No permes")
+#define MSG_ERR_Z_HOMING                    MSG_HOME _UxGT(" ") MSG_X MSG_Y _UxGT(" ") MSG_FIRST
 #define MSG_HALTED                          _UxGT("IMPRESSORA PARADA")
 #define MSG_PLEASE_RESET                    _UxGT("Reinicieu")
 #define MSG_SHORT_DAY                       _UxGT("d") // One character only
 #define MSG_SHORT_HOUR                      _UxGT("h") // One character only
 #define MSG_SHORT_MINUTE                    _UxGT("m") // One character only
 #define MSG_HEATING                         _UxGT("Escalfant...")
-#define MSG_HEATING_COMPLETE                _UxGT("Escalfament fet.")
-#define MSG_BED_HEATING                     _UxGT("Escalfant llit")
-#define MSG_BED_DONE                        _UxGT("Llit fet.")
+#define MSG_BED_HEATING                     _UxGT("Escalfant llit...")
 #define MSG_DELTA_CALIBRATE                 _UxGT("Calibratge Delta")
 #define MSG_DELTA_CALIBRATE_X               _UxGT("Calibra X")
 #define MSG_DELTA_CALIBRATE_Y               _UxGT("Calibra Y")

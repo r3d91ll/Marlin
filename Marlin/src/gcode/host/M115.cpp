@@ -139,5 +139,19 @@ void GcodeSuite::M115() {
       #endif
     );
 
+    // AUTOREPORT_SD_STATUS (M27 extension)
+    cap_line(PSTR("AUTOREPORT_SD_STATUS")
+      #if ENABLED(AUTO_REPORT_SD_STATUS)
+        , true
+      #endif
+    );
+
+    // THERMAL_PROTECTION
+    cap_line(PSTR("THERMAL_PROTECTION")
+      #if ENABLED(THERMAL_PROTECTION_HOTENDS) && ENABLED(THERMAL_PROTECTION_BED)
+        , true
+      #endif
+    );
+
   #endif // EXTENDED_CAPABILITIES_REPORT
 }
