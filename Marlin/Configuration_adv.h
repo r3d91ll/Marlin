@@ -208,10 +208,20 @@
 // before setting a PWM value. (Does not work with software PWM for fan on Sanguinololu)
 //#define FAN_KICKSTART_TIME 100
 
-// This defines the minimal speed for the main fan, run in PWM mode
-// to enable uncomment and set minimal PWM speed for reliable running (1-255)
-// if fan speed is [1 - (FAN_MIN_PWM-1)] it is set to FAN_MIN_PWM
+/**
+ * PWM Fan Scaling
+ *
+ * Define the min/max speeds for PWM fans (as set with M106).
+ *
+ * With these options the M106 0-255 value range is scaled to a subset
+ * to ensure that the fan has enough power to spin, or to run lower
+ * current fans with higher current. (e.g., 5V/12V fans with 12V/24V)
+ * Value 0 always turns off the fan.
+ *
+ * Define one or both of these to override the default 0-255 range.
+ */
 //#define FAN_MIN_PWM 50
+//#define FAN_MAX_PWM 128
 
 // @section extruder
 
@@ -751,7 +761,7 @@
  * See http://marlinfw.org/docs/features/lin_advance.html for full instructions.
  * Mention @Sebastianv650 on GitHub to alert the author of any issues.
  */
-#define LIN_ADVANCE
+//#define LIN_ADVANCE
 #if ENABLED(LIN_ADVANCE)
   #define LIN_ADVANCE_K 0     // Unit: mm compression per 1mm/s extruder speed
   //#define LA_DEBUG          // If enabled, this will generate debug information output over USB.
@@ -882,7 +892,7 @@
 // enter the serial receive buffer, so they cannot be blocked.
 // Currently handles M108, M112, M410
 // Does not work on boards using AT90USB (USBCON) processors!
-//#define EMERGENCY_PARSER
+#define EMERGENCY_PARSER
 
 // Bad Serial-connections can miss a received command by sending an 'ok'
 // Therefore some clients abort after 30 seconds in a timeout.
@@ -891,7 +901,7 @@
 //#define NO_TIMEOUTS 1000 // Milliseconds
 
 // Some clients will have this feature soon. This could make the NO_TIMEOUTS unnecessary.
-//#define ADVANCED_OK
+#define ADVANCED_OK
 
 // @section extras
 
