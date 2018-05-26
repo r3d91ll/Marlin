@@ -96,10 +96,10 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
 
 // private:
 
-uint8_t Stepper::last_direction_bits = 0,       // The next stepping-bits to be output
-        Stepper::last_movement_extruder = 0xFF; // Last movement extruder, as computed when the last movement was fetched from planner
-bool Stepper::abort_current_block,              // Signals to the stepper that current block should be aborted
-     Stepper::last_movement_non_null[NUM_AXIS]; // Last Movement in the given direction is not null, as computed when the last movement was fetched from planner
+uint8_t Stepper::last_direction_bits = 0,
+        Stepper::last_movement_extruder = 0xFF,
+        Stepper::axis_did_move;
+bool Stepper::abort_current_block;
 
 #if ENABLED(X_DUAL_ENDSTOPS)
   bool Stepper::locked_x_motor = false, Stepper::locked_x2_motor = false;
@@ -1566,8 +1566,77 @@ uint32_t Stepper::stepper_block_phase_isr() {
           return interval; // No more queued movements!
       }
 
-      // Compute movement direction for proper endstop handling
-      LOOP_NA(i) last_movement_non_null[i] = !!current_block->steps[i];
+      // Flag all moving axes for proper endstop handling
+
+      #if IS_CORE
+        // Define conditions for checking endstops
+        #define S_(N) current_block->steps[CORE_AXIS_##N]
+        #define D_(N) TEST(current_block->direction_bits, CORE_AXIS_##N)
+      #endif
+
+      #if CORE_IS_XY || CORE_IS_XZ
+        /**
+         * Head direction in -X axis for CoreXY and CoreXZ bots.
+         *
+         * If steps differ, both axes are moving.
+         * If DeltaA == -DeltaB, the movement is only in the 2nd axis (Y or Z, handled below)
+         * If DeltaA ==  DeltaB, the movement is only in the 1st axis (X)
+         */
+        #if ENABLED(COREXY) || ENABLED(COREXZ)
+          #define X_CMP ==
+        #else
+          #define X_CMP !=
+        #endif
+        #define X_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) X_CMP D_(2)) )
+      #else
+        #define X_MOVE_TEST !!current_block->steps[A_AXIS]
+      #endif
+
+      #if CORE_IS_XY || CORE_IS_YZ
+        /**
+         * Head direction in -Y axis for CoreXY / CoreYZ bots.
+         *
+         * If steps differ, both axes are moving
+         * If DeltaA ==  DeltaB, the movement is only in the 1st axis (X or Y)
+         * If DeltaA == -DeltaB, the movement is only in the 2nd axis (Y or Z)
+         */
+        #if ENABLED(COREYX) || ENABLED(COREYZ)
+          #define Y_CMP ==
+        #else
+          #define Y_CMP !=
+        #endif
+        #define Y_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) Y_CMP D_(2)) )
+      #else
+        #define Y_MOVE_TEST !!current_block->steps[B_AXIS]
+      #endif
+
+      #if CORE_IS_XZ || CORE_IS_YZ
+        /**
+         * Head direction in -Z axis for CoreXZ or CoreYZ bots.
+         *
+         * If steps differ, both axes are moving
+         * If DeltaA ==  DeltaB, the movement is only in the 1st axis (X or Y, already handled above)
+         * If DeltaA == -DeltaB, the movement is only in the 2nd axis (Z)
+         */
+        #if ENABLED(COREZX) || ENABLED(COREZY)
+          #define Z_CMP ==
+        #else
+          #define Z_CMP !=
+        #endif
+        #define Z_MOVE_TEST ( S_(1) != S_(2) || (S_(1) > 0 && D_(1) Z_CMP D_(2)) )
+      #else
+        #define Z_MOVE_TEST !!current_block->steps[C_AXIS]
+      #endif
+
+      uint8_t axis_bits = 0;
+      if (X_MOVE_TEST) SBI(axis_bits, A_AXIS);
+      if (Y_MOVE_TEST) SBI(axis_bits, B_AXIS);
+      if (Z_MOVE_TEST) SBI(axis_bits, C_AXIS);
+      //if (!!current_block->steps[E_AXIS]) SBI(axis_bits, E_AXIS);
+      //if (!!current_block->steps[A_AXIS]) SBI(axis_bits, X_HEAD);
+      //if (!!current_block->steps[B_AXIS]) SBI(axis_bits, Y_HEAD);
+      //if (!!current_block->steps[C_AXIS]) SBI(axis_bits, Z_HEAD);
+      axis_did_move = axis_bits;
 
       // Initialize the trapezoid generator from the current block.
       #if ENABLED(LIN_ADVANCE)
