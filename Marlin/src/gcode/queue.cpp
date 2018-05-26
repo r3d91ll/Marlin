@@ -30,10 +30,15 @@
 #include "../lcd/ultralcd.h"
 #include "../sd/cardreader.h"
 #include "../module/planner.h"
+#include "../module/temperature.h"
 #include "../Marlin.h"
 
 #if HAS_COLOR_LEDS
   #include "../feature/leds/leds.h"
+#endif
+
+#if ENABLED(POWER_LOSS_RECOVERY)
+  #include "../feature/power_loss_recovery.h"
 #endif
 
 /**
@@ -90,8 +95,7 @@ void queue_setup() {
  * Clear the Marlin command queue
  */
 void clear_command_queue() {
-  cmd_queue_index_r = cmd_queue_index_w;
-  commands_in_queue = 0;
+  cmd_queue_index_r = cmd_queue_index_w = commands_in_queue = 0;
 }
 
 /**
@@ -115,7 +119,7 @@ inline void _commit_command(bool say_ok
  * Return true if the command was successfully added.
  * Return false for a full buffer, or if the 'command' is a comment.
  */
-inline bool _enqueuecommand(const char* cmd, bool say_ok
+inline bool _enqueuecommand(const char* cmd, bool say_ok=false
   #if NUM_SERIAL > 1
     , int16_t port = -1
   #endif
@@ -133,8 +137,8 @@ inline bool _enqueuecommand(const char* cmd, bool say_ok
 /**
  * Enqueue with Serial Echo
  */
-bool enqueue_and_echo_command(const char* cmd, bool say_ok/*=false*/) {
-  if (_enqueuecommand(cmd, say_ok)) {
+bool enqueue_and_echo_command(const char* cmd) {
+  if (_enqueuecommand(cmd)) {
     SERIAL_ECHO_START();
     SERIAL_ECHOPAIR(MSG_ENQUEUEING, cmd);
     SERIAL_CHAR('"');
@@ -176,14 +180,14 @@ void enqueue_and_echo_commands_P(const char * const pgcode) {
   /**
    * Enqueue and return only when commands are actually enqueued
    */
-  void enqueue_and_echo_command_now(const char* cmd, bool say_ok/*=false*/) {
-    while (!enqueue_and_echo_command(cmd, say_ok)) idle();
+  void enqueue_and_echo_command_now(const char* cmd) {
+    while (!enqueue_and_echo_command(cmd)) idle();
   }
   #if HAS_LCD_QUEUE_NOW
     /**
      * Enqueue from program memory and return only when commands are actually enqueued
      */
-    void enqueue_and_echo_commands_P_now(const char * const pgcode) {
+    void enqueue_and_echo_commands_now_P(const char * const pgcode) {
       enqueue_and_echo_commands_P(pgcode);
       while (drain_injected_commands_P()) idle();
     }
@@ -204,7 +208,6 @@ void ok_to_send() {
     const int16_t port = command_queue_port[cmd_queue_index_r];
     if (port < 0) return;
   #endif
-  gcode.refresh_cmd_timeout();
   if (!send_ok[cmd_queue_index_r]) return;
   SERIAL_PROTOCOLPGM_P(port, MSG_OK);
   #if ENABLED(ADVANCED_OK)
@@ -233,6 +236,7 @@ void flush_and_request_resend() {
   SERIAL_FLUSH_P(port);
   SERIAL_PROTOCOLPGM_P(port, MSG_RESEND);
   SERIAL_PROTOCOLLN_P(port, gcode_LastN + 1);
+  ok_to_send();
 }
 
 void gcode_line_error(const char* err, uint8_t port) {
@@ -254,7 +258,7 @@ static bool serial_data_available() {
 static int read_serial(const int index) {
   switch (index) {
     case 0: return MYSERIAL0.read();
-    #if NUM_SERIAL > 1 
+    #if NUM_SERIAL > 1
       case 1: return MYSERIAL1.read();
     #endif
     default: return -1;
@@ -272,7 +276,7 @@ inline void get_serial_commands() {
 
   // If the command buffer is empty for too long,
   // send "wait" to indicate Marlin is still waiting.
-  #if defined(NO_TIMEOUTS) && NO_TIMEOUTS > 0
+  #if NO_TIMEOUTS > 0
     static millis_t last_command_time = 0;
     const millis_t ms = millis();
     if (commands_in_queue == 0 && !serial_data_available() && ELAPSED(ms, last_command_time + NO_TIMEOUTS)) {
@@ -298,7 +302,8 @@ inline void get_serial_commands() {
 
         serial_comment_mode[i] = false;                   // end of line == end of comment
 
-        if (!serial_count[i]) continue;                   // Skip empty lines
+        // Skip empty lines and comments
+        if (!serial_count[i]) { thermalManager.manage_heater(); continue; }
 
         serial_line_buffer[i][serial_count[i]] = 0;       // Terminate string
         serial_count[i] = 0;                              // Reset buffer
@@ -319,27 +324,25 @@ inline void get_serial_commands() {
 
           gcode_N = strtol(npos + 1, NULL, 10);
 
-          if (gcode_N != gcode_LastN + 1 && !M110) {
-            gcode_line_error(PSTR(MSG_ERR_LINE_NO), i);
-            return;
-          }
+          if (gcode_N != gcode_LastN + 1 && !M110)
+            return gcode_line_error(PSTR(MSG_ERR_LINE_NO), i);
 
           char *apos = strrchr(command, '*');
           if (apos) {
             uint8_t checksum = 0, count = uint8_t(apos - command);
             while (count) checksum ^= command[--count];
-            if (strtol(apos + 1, NULL, 10) != checksum) {
-              gcode_line_error(PSTR(MSG_ERR_CHECKSUM_MISMATCH), i);
-              return;
-            }
+            if (strtol(apos + 1, NULL, 10) != checksum)
+              return gcode_line_error(PSTR(MSG_ERR_CHECKSUM_MISMATCH), i);
           }
-          else {
-            gcode_line_error(PSTR(MSG_ERR_NO_CHECKSUM), i);
-            return;
-          }
+          else
+            return gcode_line_error(PSTR(MSG_ERR_NO_CHECKSUM), i);
 
           gcode_LastN = gcode_N;
         }
+        #if ENABLED(SDSUPPORT)
+          else if (card.saving)
+            return gcode_line_error(PSTR(MSG_ERR_NO_CHECKSUM), i);
+        #endif
 
         // Movement commands alert when stopped
         if (IsStopped()) {
@@ -359,7 +362,7 @@ inline void get_serial_commands() {
         }
 
         #if DISABLED(EMERGENCY_PARSER)
-          // If command was e-stop process now
+          // Process critical commands early
           if (strcmp(command, "M108") == 0) {
             wait_for_heatup = false;
             #if ENABLED(ULTIPANEL)
@@ -367,7 +370,7 @@ inline void get_serial_commands() {
             #endif
           }
           if (strcmp(command, "M112") == 0) kill(PSTR(MSG_KILLED));
-          if (strcmp(command, "M410") == 0) { quickstop_stepper(); }
+          if (strcmp(command, "M410") == 0) quickstop_stepper();
         #endif
 
         #if defined(NO_TIMEOUTS) && NO_TIMEOUTS > 0
@@ -388,7 +391,7 @@ inline void get_serial_commands() {
       else if (serial_char == '\\') {  // Handle escapes
         // if we have one more character, copy it over
         if ((c = read_serial(i)) >= 0 && !serial_comment_mode[i])
-          serial_line_buffer[i][serial_count[i]++] = serial_char;
+          serial_line_buffer[i][serial_count[i]++] = (char)c;
       }
       else { // it's not a newline, carriage return or escape char
         if (serial_char == ';') serial_comment_mode[i] = true;
@@ -442,13 +445,19 @@ inline void get_serial_commands() {
               LCD_MESSAGEPGM(MSG_INFO_COMPLETED_PRINTS);
               leds.set_green();
               #if HAS_RESUME_CONTINUE
-                enqueue_and_echo_commands_P(PSTR("M0")); // end of the queue!
+                gcode.lights_off_after_print = true;
+                enqueue_and_echo_commands_P(PSTR("M0 S"
+                  #if ENABLED(NEWPANEL)
+                    "1800"
+                  #else
+                    "60"
+                  #endif
+                ));
               #else
-                safe_delay(1000);
+                safe_delay(2000);
+                leds.set_off();
               #endif
-              leds.set_off();
-            #endif
-            card.checkautostart(true);
+            #endif // PRINTER_EVENT_LEDS
           }
         }
         else if (n == -1) {
@@ -459,7 +468,8 @@ inline void get_serial_commands() {
 
         sd_comment_mode = false; // for new command
 
-        if (!sd_count) continue; // skip empty lines (and comment lines)
+        // Skip empty lines and comments
+        if (!sd_count) { thermalManager.manage_heater(); continue; }
 
         command_queue[cmd_queue_index_w][sd_count] = '\0'; // terminate string
         sd_count = 0; // clear sd line buffer
@@ -479,6 +489,22 @@ inline void get_serial_commands() {
     }
   }
 
+  #if ENABLED(POWER_LOSS_RECOVERY)
+
+    inline bool drain_job_recovery_commands() {
+      static uint8_t job_recovery_commands_index = 0; // Resets on reboot
+      if (job_recovery_commands_count) {
+        if (_enqueuecommand(job_recovery_commands[job_recovery_commands_index])) {
+          ++job_recovery_commands_index;
+          if (!--job_recovery_commands_count) job_recovery_phase = JOB_RECOVERY_IDLE;
+        }
+        return true;
+      }
+      return false;
+    }
+
+  #endif
+
 #endif // SDSUPPORT
 
 /**
@@ -493,6 +519,11 @@ void get_available_commands() {
   if (drain_injected_commands_P()) return;
 
   get_serial_commands();
+
+  #if ENABLED(POWER_LOSS_RECOVERY)
+    // Commands for power-loss recovery take precedence
+    if (job_recovery_phase == JOB_RECOVERY_YES && drain_job_recovery_commands()) return;
+  #endif
 
   #if ENABLED(SDSUPPORT)
     get_sdcard_commands();
@@ -515,7 +546,7 @@ void advance_command_queue() {
         card.closefile();
         SERIAL_PROTOCOLLNPGM(MSG_FILE_SAVED);
 
-        #ifndef USBCON
+        #if !defined(__AVR__) || !defined(USBCON)
           #if ENABLED(SERIAL_STATS_DROPPED_RX)
             SERIAL_ECHOLNPAIR("Dropped bytes: ", customizedSerial.dropped());
           #endif
@@ -523,7 +554,7 @@ void advance_command_queue() {
           #if ENABLED(SERIAL_STATS_MAX_RX_QUEUED)
             SERIAL_ECHOLNPAIR("Max RX Queue Size: ", customizedSerial.rxMaxEnqueued());
           #endif
-        #endif // !USBCON
+        #endif //  !defined(__AVR__) || !defined(USBCON)
 
         ok_to_send();
       }
@@ -536,8 +567,12 @@ void advance_command_queue() {
           ok_to_send();
       }
     }
-    else
+    else {
       gcode.process_next_command();
+      #if ENABLED(POWER_LOSS_RECOVERY)
+        if (card.cardOK && card.sdprinting) save_job_recovery_info();
+      #endif
+    }
 
   #else
 
