@@ -64,7 +64,7 @@
     const float mlx = max_length(X_AXIS),
                 mly = max_length(Y_AXIS),
                 mlratio = mlx > mly ? mly / mlx : mlx / mly,
-                fr_mm_s = min(homing_feedrate(X_AXIS), homing_feedrate(Y_AXIS)) * SQRT(sq(mlratio) + 1.0);
+                fr_mm_s = MIN(homing_feedrate(X_AXIS), homing_feedrate(Y_AXIS)) * SQRT(sq(mlratio) + 1.0);
 
     #if ENABLED(SENSORLESS_HOMING)
       sensorless_homing_per_axis(X_AXIS);
@@ -171,7 +171,7 @@ void GcodeSuite::G28(const bool always_home_all) {
   #endif
 
   // Wait for planner moves to finish!
-  stepper.synchronize();
+  planner.synchronize();
 
   // Cancel the active G29 session
   #if ENABLED(PROBE_MANUALLY)
@@ -234,7 +234,7 @@ void GcodeSuite::G28(const bool always_home_all) {
       #endif
           (parser.seenval('R') ? parser.value_linear_units() : Z_HOMING_HEIGHT)
     );
- 
+
     if (z_homing_height && (home_all || homeX || homeY)) {
       // Raise Z before homing any other axes and z is not already high enough (never lower z)
       destination[Z_AXIS] = z_homing_height;
@@ -312,7 +312,7 @@ void GcodeSuite::G28(const bool always_home_all) {
           HOMEAXIS(Z);
         #endif
 
-        #if HOMING_Z_WITH_PROBE && Z_AFTER_PROBING
+        #if HOMING_Z_WITH_PROBE && defined(Z_AFTER_PROBING)
           move_z_after_probing();
         #endif
 
