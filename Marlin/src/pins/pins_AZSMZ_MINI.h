@@ -82,10 +82,10 @@
 // Heaters / Fans
 //
 // EFB
-#define HEATER_0_PIN       P2_04
-#define HEATER_BED_PIN     P2_05
-#define FAN_PIN            P2_07
-#define FAN1_PIN           P0_26
+#define HEATER_0_PIN       P2_05 // hotend
+#define HEATER_BED_PIN     P2_07
+#define FAN_PIN            P0_26
+#define FAN1_PIN           P2_04
 
 #if ENABLED(AZSMZ_12864)
   #define BEEPER_PIN       P1_30
