@@ -68,7 +68,7 @@
  *
  * Enhanced G29 Auto Bed Leveling Probe Routine
  *
- *  O  Auto-level only if it is needed
+ *  O  Auto-level only if needed
  *
  *  D  Dry-Run mode. Just evaluate the bed Topology - Don't apply
  *     or alter the bed level data. Useful to check the topology
@@ -176,16 +176,14 @@ void GcodeSuite::G29() {
   // Don't allow auto-leveling without homing first
   if (axis_unhomed_error()) return;
 
-  if(parser.seen('O') && !no_action) { // Auto-level only if needed
-    if(planner.leveling_active) {
-      #if ENABLED(DEBUG_LEVELING_FEATURE)
-        if (DEBUGGING(LEVELING)) {
-          SERIAL_ECHOLNPGM("> Auto-level not needed, skip");
-          SERIAL_ECHOLNPGM("<<< G29");
-        }
-      #endif
-      return;
-    }
+  if (!no_action && planner.leveling_active && parser.boolval('O')) { // Auto-level only if needed
+    #if ENABLED(DEBUG_LEVELING_FEATURE)
+      if (DEBUGGING(LEVELING)) {
+        SERIAL_ECHOLNPGM("> Auto-level not needed, skip");
+        SERIAL_ECHOLNPGM("<<< G29");
+      }
+    #endif
+    return;
   }
   // Define local vars 'static' for manual probing, 'auto' otherwise
   #if ENABLED(PROBE_MANUALLY)
