@@ -185,6 +185,7 @@ void GcodeSuite::G29() {
     #endif
     return;
   }
+
   // Define local vars 'static' for manual probing, 'auto' otherwise
   #if ENABLED(PROBE_MANUALLY)
     #define ABL_VAR static
@@ -266,6 +267,10 @@ void GcodeSuite::G29() {
    * On the initial G29 fetch command parameters.
    */
   if (!g29_in_progress) {
+
+    #if ENABLED(DUAL_X_CARRIAGE)
+      if (active_extruder != 0) tool_change(0);
+    #endif
 
     #if ENABLED(PROBE_MANUALLY) || ENABLED(AUTO_BED_LEVELING_LINEAR)
       abl_probe_index = -1;
