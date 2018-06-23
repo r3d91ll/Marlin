@@ -108,11 +108,11 @@ FORCE_INLINE void _draw_axis_value(const AxisEnum axis, const char *value, const
   if (blink)
     lcd_put_u8str(value);
   else {
-    if (!axis_homed[axis])
+    if (!TEST(axis_homed, axis))
       while (const char c = *value++) lcd_put_wchar(c <= '.' ? c : '?');
     else {
       #if DISABLED(HOME_AFTER_DEACTIVATE) && DISABLED(DISABLE_REDUCED_ACCURACY_WARNING)
-        if (!axis_known_position[axis])
+        if (!TEST(axis_known_position, axis))
           lcd_put_u8str_P(axis == Z_AXIS ? PSTR("      ") : PSTR("    "));
         else
       #endif
@@ -164,7 +164,7 @@ inline void lcd_implementation_status_message(const bool blink) {
           lcd_put_wchar('.');
           if (--chars) {
             // Print a second copy of the message
-            lcd_put_u8str_max(lcd_status_message, LCD_PIXEL_WIDTH - ((rlen+2) * DOG_CHAR_WIDTH)); 
+            lcd_put_u8str_max(lcd_status_message, LCD_PIXEL_WIDTH - ((rlen+2) * DOG_CHAR_WIDTH));
           }
         }
       }
