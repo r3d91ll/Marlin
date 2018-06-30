@@ -2567,7 +2567,7 @@ void lcd_quick_feedback(const bool clear_buttons) {
   #endif // AUTO_BED_LEVELING_UBL
 
 
-  #if ENABLED(LCD_BED_LEVELING) || (PLANNER_LEVELING && DISABLED(SLIM_LCD_MENUS))
+  #if ENABLED(LCD_BED_LEVELING) || (HAS_LEVELING && DISABLED(SLIM_LCD_MENUS))
     void _lcd_toggle_bed_leveling() { set_bed_leveling_enabled(!planner.leveling_active); }
   #endif
 
@@ -2691,7 +2691,7 @@ void lcd_quick_feedback(const bool clear_buttons) {
       #endif
           MENU_ITEM(submenu, MSG_BED_LEVELING, lcd_bed_leveling);
 
-    #elif PLANNER_LEVELING && DISABLED(SLIM_LCD_MENUS)
+    #elif HAS_LEVELING && DISABLED(SLIM_LCD_MENUS)
 
       #if DISABLED(PROBE_MANUALLY)
         MENU_ITEM(gcode, MSG_LEVEL_BED, PSTR("G28\nG29"));
@@ -3752,7 +3752,7 @@ void lcd_quick_feedback(const bool clear_buttons) {
       MENU_BACK(MSG_MOTION);
 
       #if ENABLED(JUNCTION_DEVIATION)
-        MENU_ITEM_EDIT_CALLBACK(float43, MSG_JUNCTION_DEVIATION, &planner.junction_deviation_mm, 0.01, 0.3, planner.recalculate_max_e_jerk_factor);
+        MENU_ITEM_EDIT_CALLBACK(float43, MSG_JUNCTION_DEVIATION, &planner.junction_deviation_mm, 0.01, 0.3, planner.recalculate_max_e_jerk);
       #else
         MENU_MULTIPLIER_ITEM_EDIT(float3, MSG_VA_JERK, &planner.max_jerk[A_AXIS], 1, 990);
         MENU_MULTIPLIER_ITEM_EDIT(float3, MSG_VB_JERK, &planner.max_jerk[B_AXIS], 1, 990);
