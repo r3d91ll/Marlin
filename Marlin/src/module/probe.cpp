@@ -392,7 +392,7 @@ bool set_probe_deployed(const bool deploy) {
   #endif
 
   if (deploy_stow_condition && unknown_condition)
-    do_probe_raise(max(Z_CLEARANCE_BETWEEN_PROBES, Z_CLEARANCE_DEPLOY_PROBE));
+    do_probe_raise(MAX(Z_CLEARANCE_BETWEEN_PROBES, Z_CLEARANCE_DEPLOY_PROBE));
 
   #if ENABLED(Z_PROBE_SLED) || ENABLED(Z_PROBE_ALLEN_KEY)
     #if ENABLED(Z_PROBE_SLED)
@@ -465,7 +465,7 @@ bool set_probe_deployed(const bool deploy) {
   return false;
 }
 
-#if Z_AFTER_PROBING
+#ifdef Z_AFTER_PROBING
   // After probing move to a preferred Z position
   void move_z_after_probing() {
     if (current_position[Z_AXIS] != Z_AFTER_PROBING) {
@@ -482,9 +482,24 @@ bool set_probe_deployed(const bool deploy) {
  * @param  fr_mm_s  Feedrate in mm/s
  * @return true to indicate an error
  */
-static bool do_probe_move(const float z, const float fr_mm_m) {
+
+#if HAS_HEATED_BED && ENABLED(WAIT_FOR_BED_HEATER)
+  const char msg_wait_for_bed_heating[25] PROGMEM = "Wait for bed heating...\n";
+#endif
+
+static bool do_probe_move(const float z, const float fr_mm_s) {
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) DEBUG_POS(">>> do_probe_move", current_position);
+  #endif
+
+  #if HAS_HEATED_BED && ENABLED(WAIT_FOR_BED_HEATER)
+    // Wait for bed to heat back up between probing points
+    if (thermalManager.isHeatingBed()) {
+      serialprintPGM(msg_wait_for_bed_heating);
+      LCD_MESSAGEPGM(MSG_BED_HEATING);
+      while (thermalManager.isHeatingBed()) safe_delay(200);
+      lcd_reset_status();
+    }
   #endif
 
   // Deploy BLTouch at the start of any probe
@@ -497,10 +512,10 @@ static bool do_probe_move(const float z, const float fr_mm_m) {
   #endif
 
   // Move down until probe triggered
-  do_blocking_move_to_z(z, MMM_TO_MMS(fr_mm_m));
+  do_blocking_move_to_z(z, fr_mm_s);
 
   // Check to see if the probe was triggered
-  const bool probe_triggered = TEST(Endstops::endstop_hit_bits,
+  const bool probe_triggered = TEST(endstops.trigger_state(),
     #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
       Z_MIN
     #else
@@ -539,34 +554,21 @@ static bool do_probe_move(const float z, const float fr_mm_m) {
  *
  * @return The raw Z position where the probe was triggered
  */
-#define HAS_CALIBRATION_PROBE (ENABLED(DELTA_AUTO_CALIBRATION) && Z_PROBE_LOW_POINT < 0)
-static float run_z_probe(
-  #if HAS_CALIBRATION_PROBE
-    const bool is_calibration
-  #endif
-) {
+  static float run_z_probe() {
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) DEBUG_POS(">>> run_z_probe", current_position);
   #endif
 
-  #if Z_PROBE_LOW_POINT < 0
-    // Stop the probe before it goes too low to prevent damage.
-    // If Z isn't known or this is a "calibration probe" then probe to -10mm.
-    #if !HAS_CALIBRATION_PROBE
-      constexpr bool is_calibration = false;
-    #endif
-    const float z_probe_low_point = !is_calibration && axis_known_position[Z_AXIS] ? -zprobe_zoffset + Z_PROBE_LOW_POINT : -10.0;
-  #else
-    // Assertively move down in all cases
-    constexpr float z_probe_low_point = -10.0;
-  #endif
+  // Stop the probe before it goes too low to prevent damage.
+  // If Z isn't known then probe to -10mm.
+  const float z_probe_low_point = axis_known_position[Z_AXIS] ? -zprobe_zoffset + Z_PROBE_LOW_POINT : -10.0;
 
   // Double-probing does a fast probe followed by a slow probe
   #if MULTIPLE_PROBING == 2
 
     // Do a first probe at the fast speed
-    if (do_probe_move(z_probe_low_point, Z_PROBE_SPEED_FAST)) return NAN;
+    if (do_probe_move(z_probe_low_point, MMM_TO_MMS(Z_PROBE_SPEED_FAST))) return NAN;
 
     float first_probe_z = current_position[Z_AXIS];
 
@@ -586,7 +588,7 @@ static float run_z_probe(
 
     if (current_position[Z_AXIS] > z) {
       // If we don't make it to the z position (i.e. the probe triggered), move up to make clearance for the probe
-      if (!do_probe_move(z, Z_PROBE_SPEED_FAST))
+      if (!do_probe_move(z, MMM_TO_MMS(Z_PROBE_SPEED_FAST)))
         do_blocking_move_to_z(current_position[Z_AXIS] + Z_CLEARANCE_BETWEEN_PROBES, MMM_TO_MMS(Z_PROBE_SPEED_FAST));
     }
   #endif
@@ -597,7 +599,7 @@ static float run_z_probe(
   #endif
 
       // Move down slowly to find bed, not too far
-      if (do_probe_move(z_probe_low_point, Z_PROBE_SPEED_SLOW)) return NAN;
+      if (do_probe_move(z_probe_low_point, MMM_TO_MMS(Z_PROBE_SPEED_SLOW))) return NAN;
 
   #if MULTIPLE_PROBING > 2
       probes_total += current_position[Z_AXIS];
@@ -645,14 +647,14 @@ static float run_z_probe(
  *   - Raise to the BETWEEN height
  * - Return the probed Z position
  */
-float probe_pt(const float &rx, const float &ry, const ProbePtRaise raise_after/*=PROBE_PT_NONE*/, const uint8_t verbose_level/*=0*/, const bool is_calibration/*=false*/) {
+float probe_pt(const float &rx, const float &ry, const ProbePtRaise raise_after/*=PROBE_PT_NONE*/, const uint8_t verbose_level/*=0*/, const bool probe_relative/*=true*/) {
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) {
       SERIAL_ECHOPAIR(">>> probe_pt(", LOGICAL_X_POSITION(rx));
       SERIAL_ECHOPAIR(", ", LOGICAL_Y_POSITION(ry));
       SERIAL_ECHOPAIR(", ", raise_after == PROBE_PT_RAISE ? "raise" : raise_after == PROBE_PT_STOW ? "stow" : "none");
       SERIAL_ECHOPAIR(", ", int(verbose_level));
-      SERIAL_ECHOPAIR(", ", is_calibration ? "nozzle" : "probe");
+      SERIAL_ECHOPAIR(", ", probe_relative ? "probe" : "nozzle");
       SERIAL_ECHOLNPGM("_relative)");
       DEBUG_POS("", current_position);
     }
@@ -660,7 +662,7 @@ float probe_pt(const float &rx, const float &ry, const ProbePtRaise raise_after/
 
   // TODO: Adapt for SCARA, where the offset rotates
   float nx = rx, ny = ry;
-  if (!is_calibration) {
+  if (probe_relative) {
     if (!position_is_reachable_by_probe(rx, ry)) return NAN;  // The given position is in terms of the probe
     nx -= (X_PROBE_OFFSET_FROM_EXTRUDER);                     // Get the nozzle position
     ny -= (Y_PROBE_OFFSET_FROM_EXTRUDER);
@@ -670,7 +672,7 @@ float probe_pt(const float &rx, const float &ry, const ProbePtRaise raise_after/
   const float nz =
     #if ENABLED(DELTA)
       // Move below clip height or xy move will be aborted by do_blocking_move_to
-      min(current_position[Z_AXIS], delta_clip_start_height)
+      MIN(current_position[Z_AXIS], delta_clip_start_height)
     #else
       current_position[Z_AXIS]
     #endif
@@ -684,14 +686,11 @@ float probe_pt(const float &rx, const float &ry, const ProbePtRaise raise_after/
 
   float measured_z = NAN;
   if (!DEPLOY_PROBE()) {
-    measured_z = run_z_probe(
-      #if HAS_CALIBRATION_PROBE
-        is_calibration
-      #endif
-    ) + zprobe_zoffset;
+    measured_z = run_z_probe() + zprobe_zoffset;
 
-    if (raise_after == PROBE_PT_RAISE)
-      do_blocking_move_to_z(current_position[Z_AXIS] + Z_CLEARANCE_BETWEEN_PROBES, MMM_TO_MMS(Z_PROBE_SPEED_FAST));
+    const bool big_raise = raise_after == PROBE_PT_BIG_RAISE;
+    if (big_raise || raise_after == PROBE_PT_RAISE)
+      do_blocking_move_to_z(current_position[Z_AXIS] + (big_raise ? 25 : Z_CLEARANCE_BETWEEN_PROBES), MMM_TO_MMS(Z_PROBE_SPEED_FAST));
     else if (raise_after == PROBE_PT_STOW)
       if (STOW_PROBE()) measured_z = NAN;
   }

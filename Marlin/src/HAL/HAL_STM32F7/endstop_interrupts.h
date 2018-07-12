@@ -26,6 +26,11 @@
 #ifndef _ENDSTOP_INTERRUPTS_H_
 #define _ENDSTOP_INTERRUPTS_H_
 
+#include "../../module/endstops.h"
+
+// One ISR for all EXT-Interrupts
+void endstop_ISR(void) { endstops.check_possible_change(); }
+
 void setup_endstop_interrupts(void) {
   #if HAS_X_MAX
     pinMode(X_MAX_PIN, INPUT);
