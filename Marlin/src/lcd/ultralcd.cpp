@@ -109,6 +109,9 @@ uint8_t lcd_status_update_delay = 1, // First update one loop delayed
   constexpr bool first_page = true;
 #endif
 
+void lcd_move_z();
+float move_menu_scale;
+
 // The main status screen
 void lcd_status_screen();
 
@@ -510,6 +513,7 @@ uint16_t max_display_update_time = 0;
       #endif
 
       #if ENABLED(DOUBLECLICK_FOR_Z_BABYSTEPPING) && ENABLED(BABYSTEPPING)
+        
         static millis_t doubleclick_expire_ms = 0;
         // Going to lcd_main_menu from status screen? Remember first click time.
         // Going back to status screen within a very short time? Go to Z babystepping.
@@ -517,14 +521,27 @@ uint16_t max_display_update_time = 0;
           if (currentScreen == lcd_status_screen)
             doubleclick_expire_ms = millis() + DOUBLECLICK_MAX_INTERVAL;
         }
-        else if (screen == lcd_status_screen && currentScreen == lcd_main_menu && PENDING(millis(), doubleclick_expire_ms) && (planner.movesplanned() || IS_SD_PRINTING))
-          screen =
+        else if (screen == lcd_status_screen && currentScreen == lcd_main_menu && PENDING(millis(), doubleclick_expire_ms)) {
+          if(planner.movesplanned() || IS_SD_PRINTING) {
+            screen =
             #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
               lcd_babystep_zoffset
             #else
               lcd_babystep_z
             #endif
-          ;
+            ;
+          }
+          #if ENABLED(MOVE_Z_WHEN_IDLE)
+            #if ENABLED(DELTA)
+            else if (all_axes_homed())
+            #else
+            else {
+            #endif
+              move_menu_scale = 1.0 * (MOVE_Z_IDLE_MULTIPLICATOR);
+              screen = lcd_move_z;
+            }
+          #endif
+        }
       #endif
 
       currentScreen = screen;
@@ -2800,7 +2817,7 @@ void lcd_quick_feedback(const bool clear_buttons) {
     END_MENU();
   }
 
-  float move_menu_scale;
+
 
   #if ENABLED(DELTA_CALIBRATION_MENU) || ENABLED(DELTA_AUTO_CALIBRATION)
 
