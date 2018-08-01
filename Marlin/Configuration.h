@@ -629,7 +629,7 @@
  * Override with M203
  *                                      X, Y, Z, E0 [, E1[, E2[, E3[, E4]]]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 125, 125, 20, 40 }
+#define DEFAULT_MAX_FEEDRATE          { 125, 125, 30, 40 }
 
 /**
  * Default Max Acceleration (change/s) change = mm/s
@@ -1145,7 +1145,7 @@
 // For DELTA this is the top-center of the Cartesian print volume.
 //#define MANUAL_X_HOME_POS 0
 //#define MANUAL_Y_HOME_POS 0
-//#define MANUAL_Z_HOME_POS 0
+#define MANUAL_Z_HOME_POS 0
 
 // Use "Z Safe Homing" to avoid homing with a Z probe outside the bed area.
 //
